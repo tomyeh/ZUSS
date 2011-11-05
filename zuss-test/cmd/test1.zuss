@@ -1,0 +1,17 @@
+/*test.zuss*/
+a:hover, .another div {
+	.nest span {
+		overflow: auto; display: /*comment 1*/
+		inline-block;
+		background: white /*comment 2*/ !important;
+	}
+	&.float {
+		display: float;
+		h1 {
+			color: blue
+		}
+	}
+	backgournd-image: @var0 url(/dir/whatever);
+	border: 1px @var1 solid
+	blue
+}

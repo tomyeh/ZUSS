@@ -1,0 +1,7 @@
+D.ON=true
+javadoc=~/prj/javadoc-zuss
+unzip=true
+debug=true
+optimize=true
+start.service=Apache Tomcat 6
+version=1.0.0

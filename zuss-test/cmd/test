@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cp=$0
+if [ "$TERM" = "cygwin" ] ; then
+	cp=$(cygpath -u $cp)
+fi
+cp=${cp%/*}
+
+$cp/zuss $cp/test1.zuss
+#zuss $cp/test2.zuss

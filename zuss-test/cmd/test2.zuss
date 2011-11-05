@@ -1,0 +1,7 @@
+section {
+  float: left;
+  margin: 1em; border: solid 1px;
+  width: calc(100%/3 - 2*1em - 2*1px);
+}
+
+p {margin: calc(1rem - 2px) calc(1rem - 1px);}

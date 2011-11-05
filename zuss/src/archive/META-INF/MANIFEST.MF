@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Specification-Title: ZUSS
+Specification-Version: 1.0.0
+Specification-Vendor: Potix Corporation
+Implementation-Title: org.zkoss.zuss
+Implementation-URL: http://www.zkoss.org/prj/zuss
+Implementation-Version: 1.0.0
+Implementation-Vendor: Potix Corporation
+Main-Class: org.zkoss.zuss.Zuss

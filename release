@@ -1,0 +1,218 @@
+#!/bin/bash
+# release
+#
+#{{IS_NOTE
+#	Purpose:
+#		
+#	Description:
+#		
+#	History:
+#		Mon Nov 14 14:29:09     2005, Created by tomyeh
+#}}IS_NOTE
+#
+#Copyright (C) 2005 Potix Corporation. All Rights Reserved.
+#
+#{{IS_RIGHT
+#}}IS_RIGHT
+#
+maindir="$(pwd)"
+cd $maindir
+echo "Working directory $maindir"
+
+stamp=$(date +%Y-%m-%d)
+target=$1
+
+setting=build.setting.local
+if [ ! -f $setting ] ; then
+	setting=build.setting
+	if [ ! -f $setting ] ; then
+		echo $setting must be specified
+		exit 1
+	fi
+fi
+javadocdir=$(grep '^javadoc' $setting)
+javadocdir=${javadocdir#javadoc=}
+if [ "$javadocdir" = "" ] ; then
+	echo javadoc must be specified in $setting
+	exit 1
+fi
+javadocdir=${javadocdir/\~/$HOME}
+if [ ! -d "$javadocdir" ] ; then
+	echo $javadocdir is not found
+	exit 1
+fi
+javadocdir=${javadocdir/\~/$HOME}
+#if [ ! -d "$javadocdir/jsdoc" ] ; then
+#	echo $javadocdir/jsdoc is not found
+#	exit 1
+#fi
+
+ver=$(grep '^version=' $setting)
+ver=${ver#version=}
+
+#jar
+if [ "$target" == "official" ] ; then
+	binnm=zuss-bin-$ver
+	javadocnm=zuss-javadoc-$ver
+	srcnm=zuss-src-$ver
+elif [ "$target" == "" ] || [ "$target" == "daily" ] ; then
+	target=daily
+
+	binnm=zuss-bin-$ver-$stamp
+	javadocnm=zuss-javadoc-$ver-$stamp
+	srcnm=zuss-src-$ver-$stamp
+else
+	echo "Usage: release [ official | daily ]"
+	echo Default: daily
+	exit 1
+fi
+
+echo "Release $binnm..."
+
+rm -rf /tmp/zuss
+rm -rf /tmp/maven
+
+#Prepare the source codes
+if [ "$target" == "official" ] || [ "$target" == "daily" ] ; then
+	mkdir -p /tmp/zuss/$srcnm/bin
+	mkdir -p /tmp/zuss/$srcnm/dist/src
+	mkdir -p /tmp/zuss/$srcnm/doc
+	chmod -R 755 $maindir
+	echo Prepare ${srcnm}.zip
+
+	cd $maindir
+	cp bin/* /tmp/zuss/$srcnm/bin
+	cp build* /tmp/zuss/$srcnm
+	cp -rp bin /tmp/zuss/$srcnm
+	cp -rp zuss /tmp/zuss/$srcnm
+
+	cp doc/COPYING doc/release-note /tmp/zuss/$srcnm/doc
+
+	cd /tmp/zuss/$srcnm
+	rm -rf zuss/debug
+	find -name .svn | xargs rm -rf
+
+	cd /tmp/zuss
+
+	#prepare *-sources.jar
+	echo Prepare '*-sources.jar'
+	mkdir -p src/zuss
+	cd $srcnm
+
+	cp -rp zuss/codegen/* zuss/src/* ../src/zuss
+
+	cd ..
+	rm -rf src/*/archive
+
+	echo Output '*-sources.jar'
+	cd src
+
+	find -name 'package.html' | xargs rm -rf
+	jar cfM zuss-sources.jar -C zuss .
+
+	chmod 644 *.jar
+	mv *-sources.jar ..
+	cd ..
+	rm -rf src
+
+	cd $maindir
+
+	mv -f /tmp/zuss/*-sources.jar /tmp/zuss/$srcnm/dist/src
+
+	cd /tmp/zuss
+	echo Output ${srcnm}.zip
+	zip -qr9 ${srcnm}.zip $srcnm
+
+	#Prepare the binary release
+	mkdir -p /tmp/zuss/$binnm/dist/lib
+	#mkdir -p /tmp/zuss/$binnm/dist/WEB-INF/tld/
+	#mkdir -p /tmp/zuss/$binnm/dist/xsd
+	mkdir -p /tmp/zuss/$binnm/doc
+
+	cd $maindir
+
+	#mv -f /tmp/zuss/*-sources.jar /tmp/zuss/$binnm/dist/src
+	cp dist/lib/zcommon.jar dist/lib/zcommons-el.jar dist/lib/zweb.jar /tmp/zuss/$binnm/dist/lib/
+	cp dist/lib/zuss.jar /tmp/zuss/$binnm/dist/lib/
+	chmod 644 /tmp/zuss/$binnm/dist/lib/*.jar
+	#chmod 644 /tmp/zuss/$binnm/dist/lib/*/*.jar
+
+	#cp -rp zuss/src/archive/web/WEB-INF/tld/web /tmp/zuss/$binnm/dist/WEB-INF/tld
+	#cp zuss/src/archive/metainfo/xml/*.xsd /tmp/zuss/$binnm/dist/xsd
+	cp doc/COPYING doc/release-note /tmp/zuss/$binnm/doc
+
+	#chmod 644 /tmp/zuss/$binnm/dist/xsd/*.xsd
+	chmod 644 /tmp/zuss/$binnm/doc/release-note
+
+	cd /tmp/zuss/$binnm/doc
+	find -name .svn | xargs rm -rf
+
+	#cd /tmp/zuss/$binnm/dist/WEB-INF
+	#find -name .svn | xargs rm -rf
+
+	cd /tmp/zuss
+
+	#Prepare maven repository
+	function mvnrepo {
+		if [ "$target" == "official" ] ; then
+			local vertamp=`echo $ver | sed 's/-/./'`
+		else
+			local vertamp=`echo $ver | sed 's/-/./'`.$(date +%Y%m%d)
+		fi
+
+		mkdir -p $1
+		
+		local fileName=$1
+		if [ $2 ] ; then
+			cp /tmp/zuss/$srcnm/dist/src/$1-sources.jar $1/$1-$vertamp-sources.jar
+		elif [ -f "$maindir/dist/lib/$1.nosrc.jar" ] ; then
+			fileName=$1.nosrc
+		fi
+
+		sed -e "s/zk.version>.*<\/zk.version/zk.version>$vertamp<\/zk.version/" $maindir/$1/pom.xml > $maindir/$1/pom2.xml
+		mv -f $maindir/$1/pom2.xml $maindir/$1/pom.xml
+		
+		if [ "$1" != "zuss-test" ] ; then
+			sed -e "s/\${zk.version}/$vertamp/" $maindir/$1/pom.xml > $1/pom.xml
+			cp $maindir/dist/lib/$fileName.jar $1/$1-$vertamp.jar
+			jar cfM $1-$vertamp-bundle.jar -C $1 .
+		fi
+	}
+
+	mkdir -p maven
+	mkdir -p /tmp/maven
+	cd maven
+	mvnrepo zuss true
+	
+	mv *-bundle.jar /tmp/maven
+	cd ..
+	rm -rf maven
+
+	mkdir -p /tmp/zuss/$binnm/dist/src
+
+	cp /tmp/zuss/$srcnm/dist/src/* /tmp/zuss/$binnm/dist/src/
+
+	#Ouput ${binnm}
+	cp $maindir/doc/COPYING /tmp/zuss/$binnm/doc
+
+	if [ "$target" == "official" ] ; then
+		echo Output ${binnm}.tar.gz
+		tar zcf ${binnm}.tar.gz $binnm
+	fi
+
+	echo Output ${binnm}.zip
+	zip -qr9 ${binnm}.zip $binnm
+
+	rm -rf $binnm
+	rm -rf metainfo
+	rm -rf $srcnm
+	rm -rf $binnm
+
+	#Prepare the java doc
+	cd $javadocdir
+
+	echo Output ${javadocnm}.zip
+	zip -qr9 ${javadocnm}.zip zuss
+	mv ${javadocnm}.zip /tmp/zuss
+
+fi
