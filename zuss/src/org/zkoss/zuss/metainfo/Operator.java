@@ -12,6 +12,8 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.metainfo;
 
+import org.zkoss.zuss.Utils;
+
 /**
  * Represents an operator.
  *
@@ -38,11 +40,98 @@ public class Operator extends LeafInfo {
 	/** Types of the operators. */
 	public static enum Type {
 		//Follow Java's precedence: http://en.wikipedia.org/wiki/Order_of_operations
-		/** The negative sign. */
-		MINUS( "-", 2),
-		ADD("+", 4), SUBTRACT("-", 4), MULTIPLY("*", 3), DIVIDE("/", 3),
-		EQ("==", 7), NE("!=", 7), OR("||", 12), AND("&&", 11),
-		GT(">", 6), LT("<", 6), GE(">=", 6), LE("<=", 6),
+		/** The negation. */
+		NEGATE( "-", 1, 2) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.negate(args[0]);
+			}
+		},
+		/** The addition. */
+		ADD("+", 4) {
+			@Override
+			public Object invoke(Object... args) {
+System.out.println(args[0]+","+args[1]);
+				return Utils.add(args[0], args[1]);
+			}
+		},
+		/** The subtraction. */
+		SUBTRACT("-", 4) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.subtract(args[0], args[1]);
+			}
+		},
+		/** The multiplication. */
+		MULTIPLY("*", 3) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.multiply(args[0], args[1]);
+			}
+		},
+		/** The division. */
+		DIVIDE("/", 3) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.divide(args[0], args[1]);
+			}
+		},
+		/** Equals. */
+		EQ("==", 7) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.equals(args[0], args[1]);
+			}
+		},
+		/** Not equals. */
+		NE("!=", 7) {
+			@Override
+			public Object invoke(Object... args) {
+				return !Utils.equals(args[0], args[1]);
+			}
+		},
+		/** The OR oeprator. */
+		OR("||", 12) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.or(args[0], args[1]);
+			}
+		},
+		/** The AND operatr. */
+		AND("&&", 11) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.and(args[0], args[1]);
+			}
+		},
+		/** Greater than. */
+		GT(">", 6) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.compare(args[0], args[1]) > 0;
+			}
+		},
+		/** Less than. */
+		LT("<", 6) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.compare(args[0], args[1]) < 0;
+			}
+		},
+		/** Greater than or equals. */
+		GE(">=", 6) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.compare(args[0], args[1]) >= 0;
+			}
+		},
+		/** Less than or equals. */
+		LE("<=", 6) {
+			@Override
+			public Object invoke(Object... args) {
+				return Utils.compare(args[0], args[1]) <= 0;
+			}
+		},
 		/** Left parenthesis, '('. Not a real operator but for parsing purpose. */
 		LPAREN("(", 99), //99 so it won't be popped up until )
 		/** Right parenthesis, ')'. Not a real operator but for parsing purpose. */
@@ -52,12 +141,21 @@ public class Operator extends LeafInfo {
 		/** Argument separator. Not a real operator but for parsing purpose. */
 		COMMA(",", 99); //99 so it won't be popped up until )
 
-		private final int _precedence;
 		private final String _name;
+		private final int _argc;
+		private final int _precedence;
 
-		private Type(String name, int precedence) {
+		/**
+		 * @param precedence the precedence. The lower, the higher priority.
+		 * @param argc the number of arguments
+		 */
+		private Type(String name, int argc, int precedence) {
 			_name = name;
+			_argc = argc;
 			_precedence = precedence;
+		}
+		private Type(String name, int precedence) {
+			this(name, 2, precedence);
 		}
 
 		/** Returns the precedence of this operator.
@@ -66,12 +164,24 @@ public class Operator extends LeafInfo {
 		public int getPrecedence() {
 			return _precedence;
 		}
+		/** Returns the number arguments that this operator expects.
+		 */
+		public int getArgumentNumber() {
+			return _argc;
+		}
 		/** Returns the name of this operator.
 		 */
 		public String getName() {
 			return _name;
 		}
 
+		/** Invokes the operator.
+		 * The number of arguments must match the operator.
+		 * For example, for a unary operator, the number shall be 1.
+		 */
+		public Object invoke(Object... args) {
+			throw new UnsupportedOperationException();
+		}
 		@Override
 		public String toString() {
 			return '\'' + _name + '\'';

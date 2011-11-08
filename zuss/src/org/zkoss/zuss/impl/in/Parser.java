@@ -152,7 +152,7 @@ public class Parser {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
 					putback(token);
-					parseExpression(ctx, new Expression(sdef, token.getLine()), EOF);
+					parseExpression(ctx, new Expression(token.getLine()), EOF);
 						//note: the expression is a child of sdef
 				} else {
 					new VariableValue(sdef, ((Id)token).getValue(), token.getLine());
@@ -205,7 +205,7 @@ public class Parser {
 						ops.add(0, op);
 						continue; //next
 					case SUBTRACT:
-						op.setValue(MINUS);
+						op.setValue(NEGATE);
 						break;
 					case ADD:
 						continue; //ignore
