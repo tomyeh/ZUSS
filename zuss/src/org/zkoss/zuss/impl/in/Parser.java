@@ -29,6 +29,7 @@ import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
 import org.zkoss.zuss.metainfo.VariableValue;
+import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.Operator;
 import static org.zkoss.zuss.metainfo.Operator.Type.*;
 
@@ -37,6 +38,8 @@ import static org.zkoss.zuss.metainfo.Operator.Type.*;
  * @author tomyeh
  */
 public class Parser {
+	private static final char EOF = (char)0;
+
 	private final Tokenizer _in;
 	private final Locator _loc;
 	/** Read ahead (used to implement {@link #putback}. */
@@ -64,7 +67,6 @@ public class Parser {
 	}
 	private void parse(Context ctx) throws IOException {
 		for (Token token; (token = next(ctx)) != null;) {
-System.out.println("a>"+D.d(token) + " for " +ctx.state.parent);
 			if (token instanceof Keyword) {
 				parseKeyword(ctx, (Keyword)token);
 			} else if (token instanceof Id) {
@@ -96,10 +98,12 @@ System.out.println("a>"+D.d(token) + " for " +ctx.state.parent);
 			final char symbol = ((Symbol)t0).getValue();
 			if (symbol == ':') { //variable definition
 				final Expression expr = new Expression(t0.getLine());
+					//note: expr is not a child of any node but part of VariableDefinition below
 				parseExpression(ctx, expr, ';');
 				new VariableDefinition(ctx.state.parent, id.getValue(), expr, id.getLine());
 				return;
 			} else if (symbol == '(') { //function or mixin
+				//TODO
 			}
 		}
 		throw new ZussException("unexpected "+t0, t0.getLine());
@@ -108,7 +112,6 @@ System.out.println("a>"+D.d(token) + " for " +ctx.state.parent);
 	/** Parse a definition starts with selector. */
 	private void parseSelector(Context ctx, RuleDefinition rdef) throws IOException {
 		Token t0 = next(ctx);
-System.out.println("b>"+D.d(t0)+" for "+rdef.getSelectors());
 		char symbol;
 		if (!(t0 instanceof Symbol)
 		|| ((symbol = ((Symbol)t0).getValue()) != ',' && symbol != '{'))
@@ -135,7 +138,6 @@ System.out.println("b>"+D.d(t0)+" for "+rdef.getSelectors());
 		StyleDefinition sdef = new StyleDefinition(ctx.state.parent, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
 			if (token instanceof Other) {
-System.out.println("c>"+D.d(token)+" for "+sdef);
 				new ConstantValue(sdef, ((Other)token).getValue(), token.getLine());
 			} else if (token instanceof Symbol) {
 				final char symbol = ((Symbol)token).getValue();
@@ -149,16 +151,20 @@ System.out.println("c>"+D.d(token)+" for "+sdef);
 			} else if (token instanceof Id) {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
-System.out.println("d0>"+D.d(token)+" for "+sdef);
-					//TODO
+					putback(token);
+					parseExpression(ctx, new Expression(sdef, token.getLine()), EOF);
+						//note: the expression is a child of sdef
 				} else {
-System.out.println("d1>"+D.d(token)+" for "+sdef);
 					new VariableValue(sdef, ((Id)token).getValue(), token.getLine());
 				}
 			}
 		}
 	}
 
+	/**
+	 * @param endcc the character to denote the end of the expression.
+	 * If EOF, it means it is parsing @f(...) and it ends with the last ')'.
+	 */
 	private void parseExpression(Context ctx, Expression expr, final char endcc)
 	throws IOException {
 		ctx.state.expressioning = true;
@@ -174,12 +180,28 @@ System.out.println("d1>"+D.d(token)+" for "+sdef);
 				char cc = ((Symbol)token).getValue();
 				if (cc == endcc)
 					break; //done
-				throw new ZussException("unexpected "+token, token.getLine());
+				if (cc != ',')
+					throw new ZussException("unexpected "+token, token.getLine());
+				if (!opExpected)
+					throw new ZussException("unexpected ','", token.getLine());
+
+				while (!ops.isEmpty()) {
+					final Op xop = ops.get(0);
+					final Operator.Type xtype = xop.getValue();
+					if (xtype == FUNC || xtype == COMMA)
+						break;
+					if (xtype == LPAREN)
+						throw new ZussException("')' expected", xop.getLine());
+					ops.remove(0);
+					new Operator(expr, xop.getValue(), xop.getLine());
+				}
+				ops.add(0, new Op(COMMA, token.getLine()));
+				opExpected = false;
 			} else if (token instanceof Op) {
 				final Op op = (Op)token;
 				if (!opExpected) {
 					switch (op.getValue()) {
-					case LEFT_PAREN:
+					case LPAREN:
 						ops.add(0, op);
 						continue; //next
 					case SUBTRACT:
@@ -190,19 +212,35 @@ System.out.println("d1>"+D.d(token)+" for "+sdef);
 					default:
 						throw new ZussException("an operand expected, not "+op, op.getLine());
 					}
-				} else if (op.getValue() == RIGHT_PAREN) {
+				} else if (op.getValue() == RPAREN) {
+					int argc = 1; //zero argument has been processed when Id is found
+					l_pop:
 					while (!ops.isEmpty()) {
 						final Op xop = ops.remove(0);
-						if (xop.getValue() == LEFT_PAREN)
+						switch (xop.getValue()) {
+						case FUNC:
+							new FunctionValue(expr, xop.getData(), argc, xop.getLine());
+							//fall thru
+						case LPAREN:
+							break l_pop; //done
+						case COMMA:
+							++argc;
 							break;
-						new Operator(expr, xop.getValue(), xop.getLine());
+						default:
+							new Operator(expr, xop.getValue(), xop.getLine());
+						}
 					}
-					continue; //next
-				}
+					if (endcc == EOF && ops.isEmpty())
+						break; //done
+					continue; //next token
+				} else if (op.getValue() == LPAREN)
+					throw new ZussException("unexpected '('", op.getLine());
+
+				//push an operator
 				while (!ops.isEmpty()) {
 					final Op xop = ops.get(0);
-					if (xop.getValue() == LEFT_PAREN
-					|| xop.getValue().getPrecedence() > op.getValue().getPrecedence())
+					final Operator.Type xtype = xop.getValue();
+					if (xtype.getPrecedence() > op.getValue().getPrecedence())
 						break;
 					//move ops[0] to expression since the precedence is GE
 					ops.remove(0);
@@ -214,9 +252,25 @@ System.out.println("d1>"+D.d(token)+" for "+sdef);
 				if (opExpected)
 					throw new ZussException("an operator expected, not "+token, token.getLine());
 
-				if (token instanceof Id)
-					new VariableValue(expr, ((Id)token).getValue(), token.getLine());
-				else if (token instanceof Other)
+				if (token instanceof Id) {
+					final String nm = ((Id)token).getValue();
+					Token t = next(ctx);
+					if (!(t instanceof Op) || ((Op)t).getValue() != LPAREN) {
+						putback(t);
+						new VariableValue(expr, nm, token.getLine());
+					} else { //function invocation
+						t = next(ctx);
+						if (t instanceof Op && ((Op)t).getValue() == RPAREN) {
+							//handle no arg invocation special, since it is not easy
+							//to tell the difference between f(a) vs. f()
+							new FunctionValue(expr, nm, 0, token.getLine());
+						} else {
+							putback(t);
+							ops.add(0, new Op(FUNC, nm, token.getLine())); //pass name as op's data
+							continue; //opExpected still false
+						}
+					}
+				} else if (token instanceof Other)
 					new ConstantValue(expr, ((Other)token).getValue(), token.getLine());
 				else
 					throw new ZussException("unexpected "+token, token.getLine());
@@ -226,18 +280,24 @@ System.out.println("d1>"+D.d(token)+" for "+sdef);
 
 		while (!ops.isEmpty()) {
 			final Op xop = ops.remove(0);
-			new Operator(expr, xop.getValue(), xop.getLine());
+			final Operator.Type xtype = xop.getValue();
+			if (xtype == COMMA)
+				throw new ZussException("unexpected ','", xop.getLine());
+			if (xtype == LPAREN || xtype == FUNC)
+				throw new ZussException("')' expected", xop.getLine());
+			new Operator(expr, xtype, xop.getLine());
 		}
 
 		if (expr.getChildren().isEmpty())
 			throw new ZussException("expression expected", expr.getLine());
-System.out.println("expr:" + expr);
 	}
 
 	private void putback(Token token) throws IOException {
-		if (_ahead != null)
-			throw new InternalError("Only one putback allowed"+token);
-		_ahead = token;
+		if (token != null) {
+			if (_ahead != null)
+				throw new InternalError("Only one putback allowed"+token);
+			_ahead = token;
+		}
 	}
 	private Token next(Context ctx) throws IOException {
 		if (_ahead != null) {

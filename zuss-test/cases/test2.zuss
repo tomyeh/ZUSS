@@ -1,3 +1,8 @@
+@void: @f() + @g(2-3*@k());
+@two: @f(2, 3);
+@whatever: @f1(@a + 23, @f2(), @f3(23));
+div {color: @f(2 + @g())}
+
 @nice-blue: #5B83AD;
 @light-blue: @nice-blue + #111;
 

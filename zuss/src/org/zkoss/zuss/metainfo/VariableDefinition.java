@@ -43,6 +43,6 @@ public class VariableDefinition extends LeafInfo {
 
 	@Override
 	public String toString() {
-		return "@" + _name + '(' + _expr + ')';
+		return "@" + _name + ':' + _expr;
 	}
 }

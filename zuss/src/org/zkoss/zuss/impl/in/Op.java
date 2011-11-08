@@ -20,11 +20,16 @@ import org.zkoss.zuss.metainfo.Operator.Type;
  */
 /*package*/ class Op implements Token {
 	private Type _value;
+	private String _data;
 	private final int _lineno;
 
-	public Op(Type value, int lineno) {
+	public Op(Type value, String data, int lineno) {
 		_value = value;
+		_data = data;
 		_lineno = lineno;
+	}
+	public Op(Type value, int lineno) {
+		this(value, null, lineno);
 	}
 	/** Returns the value of this operator.
 	 */
@@ -35,6 +40,11 @@ import org.zkoss.zuss.metainfo.Operator.Type;
 	 */
 	public void setValue(Type value) {
 		_value = value;
+	}
+	/** Returns the data, or null if not specified.
+	 */
+	public String getData() {
+		return _data;
 	}
 
 	@Override

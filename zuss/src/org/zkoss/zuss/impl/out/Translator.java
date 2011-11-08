@@ -98,7 +98,7 @@ public class Translator {
 			write(end);
 	}
 	private void outStyle(StyleDefinition sdef) throws IOException {
-		write(' ');
+		write('\t');
 		write(sdef.getName());
 		write(':');
 

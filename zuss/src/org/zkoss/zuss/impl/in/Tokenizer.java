@@ -32,7 +32,7 @@ import org.zkoss.zuss.metainfo.Operator;
 	private static final Operator.Type[] OPTYPES1 = {
 		Operator.Type.ADD, Operator.Type.SUBTRACT,
 		Operator.Type.MULTIPLY, Operator.Type.DIVIDE,
-		Operator.Type.LEFT_PAREN, Operator.Type.RIGHT_PAREN
+		Operator.Type.LPAREN, Operator.Type.RPAREN
 	};
 	private static final String OPS2 = "><=!";
 	private static final Operator.Type[] OPTYPES2 = {
@@ -118,10 +118,16 @@ import org.zkoss.zuss.metainfo.Operator;
 	 */
 	private Token asOther(char cc, boolean expressioning) throws IOException {
 		final StringBuffer sb = new StringBuffer().append(cc);
-		l_main:
 		for (;;) {
 			cc = _in.next();
-			if (cc == EOF || cc == ';' || cc == '}' || cc == '@') {
+			if (expressioning) {
+				if (cc == EOF || WHITESPACES.indexOf(cc) >= 0
+				|| SYMBOLS.indexOf(cc) >= 0
+				|| OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0) {
+					_in.putback(cc);
+					return new Other(sb.toString().trim(), getLine());
+				}
+			} else if (cc == EOF || cc == ';' || cc == '}' || cc == '@') {
 				_in.putback(cc);
 				return new Other(sb.toString().trim(), getLine());
 
@@ -129,7 +135,7 @@ import org.zkoss.zuss.metainfo.Operator;
 				_in.putback(cc);
 				return new Selector(sb.toString().trim(), getLine());
 
-			} else if (!expressioning && cc == ':' ) {
+			} else if (cc == ':' ) {
 				//a colon might appear in a selector or a separator for name/value
 				//	a:hover {background:blue;}
 				//we consider it selector if it follows by , or {
@@ -141,7 +147,7 @@ import org.zkoss.zuss.metainfo.Operator;
 
 						_in.putback(cc); //reverse order
 						_in.putback(ahead);
-						continue l_main; //keep processing char after colon
+						break; //keep processing char after colon
 
 					} else if (cc == EOF || cc == ';' || cc == '}') { //separator
 						_in.putback(cc);
@@ -153,17 +159,9 @@ import org.zkoss.zuss.metainfo.Operator;
 						ahead.append(cc);
 					}
 				}
-
-			} else {
-				if (expressioning) {
-					if (WHITESPACES.indexOf(cc) >= 0
-					|| OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0) {
-						_in.putback(cc);
-						return new Other(sb.toString().trim(), getLine());
-					}
-				}
-				sb.append(cc);
+				continue;
 			}
+			sb.append(cc);
 		}
 	}
 	private static boolean isValidId(char cc) {

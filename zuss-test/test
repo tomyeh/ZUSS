@@ -5,7 +5,6 @@ if [ "$TERM" = "cygwin" ] ; then
 	cp=$(cygpath -u $cp)
 fi
 cp=${cp%/*}
-echo $cp
 
 if [ $# = 0 ] ; then
 	cd $cp

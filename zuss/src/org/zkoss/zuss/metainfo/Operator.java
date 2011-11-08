@@ -44,9 +44,13 @@ public class Operator extends LeafInfo {
 		EQ("==", 7), NE("!=", 7), OR("||", 12), AND("&&", 11),
 		GT(">", 6), LT("<", 6), GE(">=", 6), LE("<=", 6),
 		/** Left parenthesis, '('. Not a real operator but for parsing purpose. */
-		LEFT_PAREN("(", 1),
+		LPAREN("(", 99), //99 so it won't be popped up until )
 		/** Right parenthesis, ')'. Not a real operator but for parsing purpose. */
-		RIGHT_PAREN(")", 1);
+		RPAREN(")", 99),
+		/** Function operator. Not a real operator but for parsing purpose. */
+		FUNC("functin(", 99), //99 so it won't be popped up until )
+		/** Argument separator. Not a real operator but for parsing purpose. */
+		COMMA(",", 99); //99 so it won't be popped up until )
 
 		private final int _precedence;
 		private final String _name;
