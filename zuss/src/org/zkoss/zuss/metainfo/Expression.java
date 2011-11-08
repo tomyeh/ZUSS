@@ -22,6 +22,9 @@ public class Expression extends BranchInfo {
 	public Expression(NodeInfo parent, int lineno) {
 		super(parent, lineno);
 	}
+	public Expression(int lineno) {
+		super(lineno);
+	}
 
 	@Override
 	public String toString() {

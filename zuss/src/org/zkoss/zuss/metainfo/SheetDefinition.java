@@ -21,4 +21,9 @@ public class SheetDefinition extends BranchInfo {
 	public SheetDefinition() {
 		super(1);
 	}
+
+	@Override
+	public String toString() {
+		return "ZUSS@" + System.identityHashCode(this);
+	}
 }

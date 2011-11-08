@@ -41,7 +41,11 @@ package org.zkoss.zuss.impl.in;
 	}
 	/** The value of a keyword. */
 	/*package*/ static enum Value {
-		IF("@if"), ELSE("@else"), ELIF("@elif"), INCLUDE("@include");
+		IF("@if"), ELSE("@else"), ELIF("@elif"), INCLUDE("@include"),
+		/** CSS's @import. */
+		IMPORT("@import"),
+		/** CSS's @media. */
+		MEDIA("@media");
 
 		private final String value;
 		private Value(String value) {

@@ -17,7 +17,8 @@ import java.util.HashSet;
 import java.io.Reader;
 import java.io.IOException;
 
-import static org.zkoss.zuss.impl.in.Parser.error;
+import org.zkoss.zuss.ZussException;
+import org.zkoss.zuss.metainfo.Operator;
 
 /**
  * Tokenizer.
@@ -27,7 +28,21 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 	private static final char EOF = (char)0;
 	private static final String WHITESPACES = " \t\n\r";
 	private static final String SYMBOLS = ":,{};";
-	private static final String OPS = "()+-*/><=";
+	private static final String OPS1 = "+-*/()";
+	private static final Operator.Type[] OPTYPES1 = {
+		Operator.Type.ADD, Operator.Type.SUBTRACT,
+		Operator.Type.MULTIPLY, Operator.Type.DIVIDE,
+		Operator.Type.LEFT_PAREN, Operator.Type.RIGHT_PAREN
+	};
+	private static final String OPS2 = "><=!";
+	private static final Operator.Type[] OPTYPES2 = {
+		Operator.Type.GT, Operator.Type.LT,
+		null, null
+	};
+	private static final Operator.Type[] OPTYPES2EQ = {
+		Operator.Type.GE, Operator.Type.LE,
+		Operator.Type.EQ, Operator.Type.NE
+	};
 
 	private final Input _in;
 
@@ -61,9 +76,30 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 			return asId();
 		if (SYMBOLS.indexOf(cc) >= 0)
 			return new Symbol(cc, getLine());
-		if (expressioning && OPS.indexOf(cc) >= 0)
-			return new Op(cc, getLine());
-		return asOther(cc);
+
+		if (expressioning) {
+			int j;
+			if ((j = OPS1.indexOf(cc)) >= 0)
+				return new Op(OPTYPES1[j], getLine());
+			if ((j = OPS2.indexOf(cc)) >= 0) {
+				final char c0 = _in.next();
+				if (c0 == '=')
+					return new Op(OPTYPES2EQ[j], getLine());
+
+				final Operator.Type type = OPTYPES2[j];
+				if (type == null)
+					throw new  ZussException("'=' expected after "+c0, getLine());
+				_in.putback(c0);
+				return new Op(type, getLine());
+			}
+			if (cc == '&' || cc == '|') {
+				final char c0 = _in.next();
+				if (c0 != cc)
+					throw new ZussException("Unexpected "+c0, getLine());
+				return new Op(cc == '&' ? Operator.Type.AND: Operator.Type.OR, getLine());
+			}
+		}
+		return asOther(cc, expressioning);
 	}
 	/** Peeks the nnext none-whitespace character.
 	 * It won't change the state of this tokenizer.
@@ -74,28 +110,26 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 		do {
 			cc = _in.next();
 		} while (WHITESPACES.indexOf(cc) >= 0);
-		if (cc != EOF)
-			_in.putback(cc);
+		_in.putback(cc);
 		return cc;
 	}
 
 	/** Returns the next token as {@link Selector} or {@link Other}.
 	 */
-	private Token asOther(char cc) throws IOException {
+	private Token asOther(char cc, boolean expressioning) throws IOException {
 		final StringBuffer sb = new StringBuffer().append(cc);
 		l_main:
 		for (;;) {
 			cc = _in.next();
 			if (cc == EOF || cc == ';' || cc == '}' || cc == '@') {
-				if (cc != EOF)
-					_in.putback(cc);
+				_in.putback(cc);
 				return new Other(sb.toString().trim(), getLine());
 
 			} else if (cc == ',' || cc == '{') {
 				_in.putback(cc);
 				return new Selector(sb.toString().trim(), getLine());
 
-			} else if (cc == ':' ) {
+			} else if (!expressioning && cc == ':' ) {
 				//a colon might appear in a selector or a separator for name/value
 				//	a:hover {background:blue;}
 				//we consider it selector if it follows by , or {
@@ -110,8 +144,7 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 						continue l_main; //keep processing char after colon
 
 					} else if (cc == EOF || cc == ';' || cc == '}') { //separator
-						if (cc != EOF)
-							_in.putback(cc);
+						_in.putback(cc);
 						_in.putback(ahead);
 						_in.putback(':'); //colon is NOT part of selector
 						return new Other(sb.toString().trim(), getLine());
@@ -122,17 +155,27 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 				}
 
 			} else {
+				if (expressioning) {
+					if (WHITESPACES.indexOf(cc) >= 0
+					|| OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0) {
+						_in.putback(cc);
+						return new Other(sb.toString().trim(), getLine());
+					}
+				}
 				sb.append(cc);
 			}
 		}
+	}
+	private static boolean isValidId(char cc) {
+		return (cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')
+			|| cc == '-' || cc == '_' || (cc >= '0' && cc <= '9');
 	}
 	/** Returns the next token as ID.
 	 */
 	private Token asId() throws IOException {
 		final StringBuffer sb = new StringBuffer();
 		for (char cc; (cc = _in.next()) != EOF;) {
-			if ((cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')
-			|| cc == '-' || cc == '_' || (cc >= '0' && cc <= '9')) {
+			if (isValidId(cc)) {
 				sb.append(cc);
 			} else {
 				_in.putback(cc);
@@ -141,7 +184,7 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 		}
 
 		if (sb.length() == 0)
-			throw error("identifier required after @", getLine());
+			throw new ZussException("identifier required after @", getLine());
 		final String nm = sb.toString();
 		if ("if".equals(nm))
 			return new Keyword(Keyword.Value.IF, getLine());
@@ -151,6 +194,10 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 			return new Keyword(Keyword.Value.ELIF, getLine());
 		if ("include".equals(nm))
 			return new Keyword(Keyword.Value.INCLUDE, getLine());
+		if ("import".equals(nm))
+			return new Keyword(Keyword.Value.IMPORT, getLine());
+		if ("media".equals(nm))
+			return new Keyword(Keyword.Value.MEDIA, getLine());
 		return new Id(nm, getLine());
 	}
 
@@ -211,13 +258,15 @@ import static org.zkoss.zuss.impl.in.Parser.error;
 						break; //failed
 				}
 			}
-			throw error("unclosed comment", _lineno);
+			throw new ZussException("unclosed comment", _lineno);
 		}
 		/** Put back what is read. It must be in stack order. */
 		private void putback(char cc) {
-			if (cc == '\n')
-				--_lineno;
-			_ahead.append(cc);
+			if (cc != EOF) {
+				if (cc == '\n')
+					--_lineno;
+				_ahead.append(cc);
+			}
 		}
 		/** Put back what are read. */
 		private void putback(CharSequence cs) {

@@ -23,6 +23,9 @@ public class ZussException extends RuntimeException {
 	public ZussException(String msg) {
 		super(msg);
 	}
+	public ZussException(String msg, int lineno) {
+		super("Line " + lineno + ": " + msg);
+	}
 	public ZussException(Throwable cause) {
 		super(cause);
 	}

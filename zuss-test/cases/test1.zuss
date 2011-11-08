@@ -1,4 +1,8 @@
 /*test.zuss*/
+div #simple {
+	border: 1px solid blue;
+	margin: 2px 3px;
+}
 a:hover, .another div {
 	.nest span {
 		overflow: auto; display: /*comment 1*/
@@ -8,10 +12,28 @@ a:hover, .another div {
 	&.float {
 		display: float;
 		h1 {
-			color: blue
+			color: blue;
+			h2 {
+				color: #999;
+			}
 		}
 	}
 	backgournd-image: @var0 url(/dir/whatever);
 	border: 1px @var1 solid
 	blue
 }
+#second div {
+	position: absolute;
+	div.float {
+		display: float;
+		background: url(/dir/dir/foo);
+	}
+}
+
+section {
+  float: left;
+  margin: 1em; border: solid 1px;
+  width: calc(100%/3 - 2*1em - 2*1px);
+}
+
+p {margin: calc(1rem - 2px) calc(1rem - 1px);}

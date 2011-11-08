@@ -14,6 +14,7 @@ package org.zkoss.zuss.impl.in;
 
 import java.util.List;
 import java.util.LinkedList;
+import java.util.ArrayList;
 import java.io.Reader;
 import java.io.InputStream;
 import java.io.IOException;
@@ -24,8 +25,12 @@ import org.zkoss.zuss.metainfo.NodeInfo;
 import org.zkoss.zuss.metainfo.SheetDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
-import org.zkoss.zuss.metainfo.ValueDefinition;
-import org.zkoss.zuss.metainfo.VariableInvocation;
+import org.zkoss.zuss.metainfo.VariableDefinition;
+import org.zkoss.zuss.metainfo.Expression;
+import org.zkoss.zuss.metainfo.ConstantValue;
+import org.zkoss.zuss.metainfo.VariableValue;
+import org.zkoss.zuss.metainfo.Operator;
+import static org.zkoss.zuss.metainfo.Operator.Type.*;
 
 /**
  * The ZUSS parser.
@@ -59,7 +64,7 @@ public class Parser {
 	}
 	private void parse(Context ctx) throws IOException {
 		for (Token token; (token = next(ctx)) != null;) {
-System.out.println(">"+D.d(token) + " for " +ctx.state.parent);
+System.out.println("a>"+D.d(token) + " for " +ctx.state.parent);
 			if (token instanceof Keyword) {
 				parseKeyword(ctx, (Keyword)token);
 			} else if (token instanceof Id) {
@@ -73,29 +78,46 @@ System.out.println(">"+D.d(token) + " for " +ctx.state.parent);
 				return; //done (closed)
 			} else if (token instanceof Other) {
 				if (ctx.state.parent instanceof SheetDefinition)
-					throw error("{ expected", token);
+					throw new ZussException("{ expected; not "+token, token.getLine());
 				parseStyle(ctx, (Other)token);
 			} else {
-				throw error("unknown token "+token, token);
+				throw new ZussException("unknown token "+token, token.getLine());
 			}
 		}
 	}
+
 	private void parseKeyword(Context ctx, Keyword kw) throws IOException {
 	}
+
+	/** Parse a definition starts with {@link Id}. */
 	private void parseId(Context ctx, Id id) throws IOException {
+		Token t0 =  next(ctx);
+		if (t0 instanceof Symbol) {
+			final char symbol = ((Symbol)t0).getValue();
+			if (symbol == ':') { //variable definition
+				final Expression expr = new Expression(t0.getLine());
+				parseExpression(ctx, expr, ';');
+				new VariableDefinition(ctx.state.parent, id.getValue(), expr, id.getLine());
+				return;
+			} else if (symbol == '(') { //function or mixin
+			}
+		}
+		throw new ZussException("unexpected "+t0, t0.getLine());
 	}
+
+	/** Parse a definition starts with selector. */
 	private void parseSelector(Context ctx, RuleDefinition rdef) throws IOException {
 		Token t0 = next(ctx);
-System.out.println(">"+D.d(t0)+" for "+rdef.getSelectors());
+System.out.println("b>"+D.d(t0)+" for "+rdef.getSelectors());
 		char symbol;
 		if (!(t0 instanceof Symbol)
 		|| ((symbol = ((Symbol)t0).getValue()) != ',' && symbol != '{'))
-			throw error(", or { expected after a selector", _in.getLine());
+			throw new ZussException(", or { expected after a selector", _in.getLine());
 
 		if (symbol == ',') {
 			Token t1 = next(ctx);
 			if (!(t1 instanceof Selector))
-				throw error("a selector expected after ','", t0);
+				throw new ZussException("a selector expected after ','", t0.getLine());
 			rdef.getSelectors().add(((Selector)t1).getValue());
 			parseSelector(ctx, rdef);
 		} else { //{
@@ -104,16 +126,17 @@ System.out.println(">"+D.d(t0)+" for "+rdef.getSelectors());
 			ctx.pop();
 		}
 	}
+
 	private void parseStyle(Context ctx, Other name) throws IOException {
 		Token t0 = next(ctx);
 		if (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ':')
-			throw error(": expected", t0 != null ? t0: name);
+			throw new ZussException(": expected", (t0 != null ? t0: name).getLine());
 
 		StyleDefinition sdef = new StyleDefinition(ctx.state.parent, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
 			if (token instanceof Other) {
-System.out.println(">"+D.d(token)+" for "+sdef);
-				new ValueDefinition(sdef, ((Other)token).getValue(), token.getLine());
+System.out.println("c>"+D.d(token)+" for "+sdef);
+				new ConstantValue(sdef, ((Other)token).getValue(), token.getLine());
 			} else if (token instanceof Symbol) {
 				final char symbol = ((Symbol)token).getValue();
 				if (symbol == ';')
@@ -122,22 +145,98 @@ System.out.println(">"+D.d(token)+" for "+sdef);
 					putback(token);
 					break; //done
 				}
-				throw error("unexpected '" + symbol + '\'', symbol);
+				throw new ZussException("unexpected '" + symbol + '\'', token.getLine());
 			} else if (token instanceof Id) {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
+System.out.println("d0>"+D.d(token)+" for "+sdef);
 					//TODO
 				} else {
-System.out.println(">"+D.d(token)+" for "+sdef);
-					new VariableInvocation(sdef, ((Id)token).getValue(), token.getLine());
+System.out.println("d1>"+D.d(token)+" for "+sdef);
+					new VariableValue(sdef, ((Id)token).getValue(), token.getLine());
 				}
 			}
 		}
 	}
 
+	private void parseExpression(Context ctx, Expression expr, final char endcc)
+	throws IOException {
+		ctx.state.expressioning = true;
+		parseExpression0(ctx, expr, endcc);
+		ctx.state.expressioning = false;
+	}
+	private void parseExpression0(Context ctx, Expression expr, final char endcc)
+	throws IOException {
+		final List<Op> ops = new ArrayList<Op>();
+		boolean opExpected = false;
+		for (Token token; (token = next(ctx)) != null;) {
+			if (token instanceof Symbol) {
+				char cc = ((Symbol)token).getValue();
+				if (cc == endcc)
+					break; //done
+				throw new ZussException("unexpected "+token, token.getLine());
+			} else if (token instanceof Op) {
+				final Op op = (Op)token;
+				if (!opExpected) {
+					switch (op.getValue()) {
+					case LEFT_PAREN:
+						ops.add(0, op);
+						continue; //next
+					case SUBTRACT:
+						op.setValue(MINUS);
+						break;
+					case ADD:
+						continue; //ignore
+					default:
+						throw new ZussException("an operand expected, not "+op, op.getLine());
+					}
+				} else if (op.getValue() == RIGHT_PAREN) {
+					while (!ops.isEmpty()) {
+						final Op xop = ops.remove(0);
+						if (xop.getValue() == LEFT_PAREN)
+							break;
+						new Operator(expr, xop.getValue(), xop.getLine());
+					}
+					continue; //next
+				}
+				while (!ops.isEmpty()) {
+					final Op xop = ops.get(0);
+					if (xop.getValue() == LEFT_PAREN
+					|| xop.getValue().getPrecedence() > op.getValue().getPrecedence())
+						break;
+					//move ops[0] to expression since the precedence is GE
+					ops.remove(0);
+					new Operator(expr, xop.getValue(), xop.getLine());
+				}
+				ops.add(0, op);
+				opExpected = false;
+			} else {
+				if (opExpected)
+					throw new ZussException("an operator expected, not "+token, token.getLine());
+
+				if (token instanceof Id)
+					new VariableValue(expr, ((Id)token).getValue(), token.getLine());
+				else if (token instanceof Other)
+					new ConstantValue(expr, ((Other)token).getValue(), token.getLine());
+				else
+					throw new ZussException("unexpected "+token, token.getLine());
+				opExpected = true;
+			}
+		}
+
+		while (!ops.isEmpty()) {
+			final Op xop = ops.remove(0);
+			new Operator(expr, xop.getValue(), xop.getLine());
+		}
+
+		if (expr.getChildren().isEmpty())
+			throw new ZussException("expression expected", expr.getLine());
+System.out.println("expr:" + expr);
+	}
+
 	private void putback(Token token) throws IOException {
 		if (_ahead != null)
-			throw new InternalError("Failed to put back "+token);
+			throw new InternalError("Only one putback allowed"+token);
 		_ahead = token;
 	}
 	private Token next(Context ctx) throws IOException {
@@ -147,15 +246,6 @@ System.out.println(">"+D.d(token)+" for "+sdef);
 			return token;
 		}
 		return _in.next(ctx.state.expressioning);
-	}
-	/*package*/ static ZussException error(String msg, int lineno) {
-		return new ZussException("Line " + lineno + ": " + msg);
-	}
-	private static final ZussException error(String msg, Token token) {
-		return error(msg, token.getLine());
-	}
-	private final ZussException eof() {
-		return error("unexpected end-of-file", _in.getLine());
 	}
 
 	private class Context {

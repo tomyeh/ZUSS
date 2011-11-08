@@ -3,5 +3,5 @@ jarfl=$0
 if [ "$TERM" = "cygwin" ] ; then
 	jarfl=$(cygpath -u $jarfl)
 fi
-jarfl=${jarfl%/*}/../../dist/lib/zuss.jar
+jarfl=${jarfl%/*}/../dist/lib/zuss.jar
 java -jar $jarfl $*

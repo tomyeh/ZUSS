@@ -12,22 +12,29 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.in;
 
+import org.zkoss.zuss.metainfo.Operator.Type;
+
 /**
  * A operator, such as '(', ')' and '+'.
  * @author tomyeh
  */
 /*package*/ class Op implements Token {
-	private final char _value;
+	private Type _value;
 	private final int _lineno;
 
-	public Op(char value, int lineno) {
+	public Op(Type value, int lineno) {
 		_value = value;
 		_lineno = lineno;
 	}
-	/** Returns the value of this symbol.
+	/** Returns the value of this operator.
 	 */
-	public char getValue() {
+	public Type getValue() {
 		return _value;
+	}
+	/** Sets the value of this operator.
+	 */
+	public void setValue(Type value) {
+		_value = value;
 	}
 
 	@Override
@@ -36,6 +43,6 @@ package org.zkoss.zuss.impl.in;
 	}
 	@Override
 	public String toString() {
-		return _value == '\n' ? "\\n": "" + _value;
+		return _value.toString();
 	}
 }

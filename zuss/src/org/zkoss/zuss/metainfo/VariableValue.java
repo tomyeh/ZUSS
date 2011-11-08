@@ -1,4 +1,4 @@
-/* VariableInvocation.java
+/* VariableValue.java
 
 	Purpose:
 		
@@ -16,10 +16,10 @@ package org.zkoss.zuss.metainfo;
  * Represents a variable invocation.
  * @author tomyeh
  */
-public class VariableInvocation extends LeafInfo {
+public class VariableValue extends LeafInfo {
 	private final String _name;
 
-	public VariableInvocation(NodeInfo parent, String name, int lineno) {
+	public VariableValue(NodeInfo parent, String name, int lineno) {
 		super(parent, lineno);
 		_name = name;
 	}

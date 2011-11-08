@@ -1,4 +1,4 @@
-/* Op.java
+/* Operator.java
 
 	Purpose:
 		
@@ -17,9 +17,9 @@ package org.zkoss.zuss.metainfo;
  *
  * @author tomyeh
  */
-public class Op extends LeafInfo {
+public class Operator extends LeafInfo {
 	private Type _type;
-	public Op(NodeInfo parent, Type type, int lineno) {
+	public Operator(NodeInfo parent, Type type, int lineno) {
 		super(parent, lineno);
 		_type = type;
 	}
@@ -35,7 +35,42 @@ public class Op extends LeafInfo {
 		return "" + _type;
 	}
 
+	/** Types of the operators. */
 	public static enum Type {
-		MINUS, ADD, SUBTRACT, MULTIPLY, DIVIDE;
+		//Follow Java's precedence: http://en.wikipedia.org/wiki/Order_of_operations
+		/** The negative sign. */
+		MINUS( "-", 2),
+		ADD("+", 4), SUBTRACT("-", 4), MULTIPLY("*", 3), DIVIDE("/", 3),
+		EQ("==", 7), NE("!=", 7), OR("||", 12), AND("&&", 11),
+		GT(">", 6), LT("<", 6), GE(">=", 6), LE("<=", 6),
+		/** Left parenthesis, '('. Not a real operator but for parsing purpose. */
+		LEFT_PAREN("(", 1),
+		/** Right parenthesis, ')'. Not a real operator but for parsing purpose. */
+		RIGHT_PAREN(")", 1);
+
+		private final int _precedence;
+		private final String _name;
+
+		private Type(String name, int precedence) {
+			_name = name;
+			_precedence = precedence;
+		}
+
+		/** Returns the precedence of this operator.
+		 * The lower the number, the higher the precedence.
+		 */
+		public int getPrecedence() {
+			return _precedence;
+		}
+		/** Returns the name of this operator.
+		 */
+		public String getName() {
+			return _name;
+		}
+
+		@Override
+		public String toString() {
+			return '\'' + _name + '\'';
+		}
 	}
 }

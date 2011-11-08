@@ -1,7 +1,5 @@
-section {
-  float: left;
-  margin: 1em; border: solid 1px;
-  width: calc(100%/3 - 2*1em - 2*1px);
-}
+@nice-blue: #5B83AD;
+@light-blue: @nice-blue + #111;
 
-p {margin: calc(1rem - 2px) calc(1rem - 1px);}
+div:hilite1 {color: @nice-blue}
+div:hilite2 {color: @light-blue}

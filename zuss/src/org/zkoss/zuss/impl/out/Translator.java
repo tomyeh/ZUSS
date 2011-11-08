@@ -1,4 +1,4 @@
-/* Generator.java
+/* Translator.java
 
 	Purpose:
 		
@@ -21,6 +21,10 @@ import org.zkoss.zuss.Resolver;
 import org.zkoss.zuss.metainfo.NodeInfo;
 import org.zkoss.zuss.metainfo.SheetDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
+import org.zkoss.zuss.metainfo.StyleDefinition;
+import org.zkoss.zuss.metainfo.VariableDefinition;
+import org.zkoss.zuss.metainfo.ConstantValue;
+import org.zkoss.zuss.metainfo.VariableValue;
 import org.zkoss.zuss.ZussException;
 
 /**
@@ -46,7 +50,7 @@ public class Translator {
 				if (node instanceof RuleDefinition) {
 					outRule(null, (RuleDefinition)node);
 				} else {
-					throw new ZussException("Line "+node.getLine()+": unknown "+node);
+					throw new ZussException("unknown "+node, node.getLine());
 				}
 			}
 		} finally {
@@ -75,21 +79,42 @@ public class Translator {
 		boolean empty = true;
 		for (NodeInfo node: rdef.getChildren()) {
 			if (node instanceof RuleDefinition) {
-				if (!empty)
+				if (!empty) {
+					empty = true;
 					write(end);
-
+				}
 				outRule(thisSels, (RuleDefinition)node);
-			} else {
+			} else if (node instanceof StyleDefinition) {
 				if (empty) {
 					empty = false;
 					write(head);
 				}
+				outStyle((StyleDefinition)node);
+			} else {
 				//TODO
 			}
 		}
 		if (!empty)
 			write(end);
 	}
+	private void outStyle(StyleDefinition sdef) throws IOException {
+		write(' ');
+		write(sdef.getName());
+		write(':');
+
+		for (NodeInfo node: sdef.getChildren()) {
+			if (node instanceof ConstantValue) {
+				write(' ');
+				write(((ConstantValue)node).getValue());
+			} else if (node instanceof VariableValue) {
+			} else {
+				throw new ZussException("unknown "+node, node.getLine());
+			}
+		}
+
+		write(";\n");
+	}
+
 	private void write(String s) throws IOException {
 		_out.write(s);
 	}

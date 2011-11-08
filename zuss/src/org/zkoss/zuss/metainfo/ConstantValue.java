@@ -1,4 +1,4 @@
-/* ValueDefinition.java
+/* ConstantValue.java
 
 	Purpose:
 		
@@ -16,10 +16,10 @@ package org.zkoss.zuss.metainfo;
  * Represents a value, i.e., the value on the right side of colon.
  * @author tomyeh
  */
-public class ValueDefinition extends LeafInfo {
+public class ConstantValue extends LeafInfo {
 	private final String _value;
 
-	public ValueDefinition(NodeInfo parent, String value, int lineno) {
+	public ConstantValue(NodeInfo parent, String value, int lineno) {
 		super(parent, lineno);
 		_value = value;
 	}
@@ -28,5 +28,10 @@ public class ValueDefinition extends LeafInfo {
 	 */
 	public String getValue() {
 		return _value;
+	}
+
+	@Override
+	public String toString() {
+		return "Value(" + _value + ')';
 	}
 }

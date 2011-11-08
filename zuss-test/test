@@ -5,6 +5,16 @@ if [ "$TERM" = "cygwin" ] ; then
 	cp=$(cygpath -u $cp)
 fi
 cp=${cp%/*}
+echo $cp
 
-$cp/zuss $cp/test1.zuss
-#zuss $cp/test2.zuss
+if [ $# = 0 ] ; then
+	cd $cp
+	for f in cases/*.zuss; do
+		./zuss $f
+	done
+else
+	cd $cp
+	for f in cases/$*; do
+		./zuss $f.zuss
+	done
+fi

@@ -13,9 +13,9 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 package org.zkoss.zuss.metainfo;
 
 /**
- * Represents a CSS property (i.e., xxx: y1 y2).
+ * Represents a CSS style (i.e., xxx: y1 y2).
  *
- * <p>The children are the values of this variable (i.e., y1 y2).
+ * <p>The children are the values of this style (i.e., y1 y2).
  * @author tomyeh
  */
 public class StyleDefinition extends BranchInfo {
