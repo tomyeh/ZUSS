@@ -1,4 +1,4 @@
-/* Utils.java
+/* Operators.java
 
 	Purpose:
 		
@@ -10,33 +10,37 @@
 Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 
 */
-package org.zkoss.zuss;
+package org.zkoss.zuss.util;
 
 /**
  * Utilities for handling CSS values, such as font size, color and so on.
  *
  * @author tomyeh
  */
-public class Utils {
+public class Operators {
 	/** Negates the given value. */
 	public static Object negate(Object val) {
 		return null;
 	}
 	/** Adds the given values. */
 	public static Object add(Object val0, Object val1) {
-		return null;
+		//TODO
+		return "<" + val0 +"+" + val1 + ">";
 	}
 	/** Subtracts the given values. */
 	public static Object subtract(Object val0, Object val1) {
-		return null;
+		//TODO
+		return "<" + val0 +"-" + val1 + ">";
 	}
 	/** Multiplies the given values. */
 	public static Object multiply(Object val0, Object val1) {
-		return null;
+		//TODO
+		return "<" + val0 +"*" + val1 + ">";
 	}
 	/** Divides the given values. */
 	public static Object divide(Object val0, Object val1) {
-		return null;
+		//TODO
+		return "<" + val0 +"/" + val1 + ">";
 	}
 
 	/** Test if the given values equal to each other. */
@@ -50,12 +54,8 @@ public class Utils {
 		return 0;
 	}
 
-	/** OR two conditions. */
-	public static Object or(Object val0, Object val1) {
-		return null;
-	}
-	/** AND two conditions. */
-	public static Object and(Object val0, Object val1) {
-		return null;
+	/** Tests if the given object is true (i.e., non-null, not empty, not false). */
+	public static boolean isTrue(Object val0) {
+		return true;
 	}
 }

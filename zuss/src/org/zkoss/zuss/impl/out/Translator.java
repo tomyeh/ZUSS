@@ -27,6 +27,7 @@ import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.ArgumentDefinition;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.ConstantValue;
@@ -54,7 +55,14 @@ public class Translator {
 	 */
 	public void translate() throws IOException {
 		try {
-			out(new Scope(null), _sheet);
+			final Scope scope = new Scope(null);
+			for (NodeInfo node: _sheet.getChildren()) {
+				if (node instanceof RuleDefinition) {
+					outRule(new Scope(scope), null, (RuleDefinition)node);
+				} else {
+					outOther(scope, node);
+				}
+			}
 		} finally {
 			try {
 				_out.close();
@@ -62,20 +70,7 @@ public class Translator {
 			}
 		}
 	}
-	private void out(Scope scope, NodeInfo parent) throws IOException {
-		for (NodeInfo node: parent.getChildren()) {
-			if (node instanceof RuleDefinition) {
-				outRule(new Scope(scope), null, (RuleDefinition)node);
-			} else if (node instanceof VariableDefinition) {
-				scope.put((VariableDefinition)node);
-			} else if (node instanceof FunctionDefinition) {
-				scope.put((FunctionDefinition)node);
-			} else {
-				throw new ZussException("unknown "+node, node.getLine());
-			}
-		}
-	}
-	/**
+	/** Generates the rule definitions.
 	 * @param outerSels the selectors of enclosing rules.
 	 * @param rdef the rule definition to generate
 	 */
@@ -99,7 +94,7 @@ public class Translator {
 					empty = true;
 					write(end);
 				}
-				outRule(scope, thisSels, (RuleDefinition)node);
+				outRule(new Scope(scope), thisSels, (RuleDefinition)node);
 			} else if (node instanceof StyleDefinition) {
 				if (empty) {
 					empty = false;
@@ -107,7 +102,7 @@ public class Translator {
 				}
 				outStyle(scope, (StyleDefinition)node);
 			} else {
-				//TODO
+				outOther(scope, node);
 			}
 		}
 		if (!empty)
@@ -129,6 +124,19 @@ public class Translator {
 		write(";\n");
 	}
 
+	/** Generates definitions other than rules and styles. */
+	private void outOther(Scope scope, NodeInfo node) throws IOException {
+		if (node instanceof VariableDefinition) {
+			final VariableDefinition vdef = (VariableDefinition)node;
+			scope.putVariable(vdef.getName(), eval(scope, vdef));
+				//spec: evaluate when it is defined (not when it is used)
+		} else if (node instanceof FunctionDefinition) {
+			scope.putFunction((FunctionDefinition)node);
+		} else {
+			throw new ZussException("unknown "+node, node.getLine());
+		}
+	}
+
 	private Object eval(Scope scope, NodeInfo node) {
 		if (node instanceof ConstantValue)
 			return ((ConstantValue)node).getValue();
@@ -142,22 +150,14 @@ public class Translator {
 		final List<Object> values = new LinkedList<Object>();
 		for (NodeInfo node: expr.getChildren()) {
 			if (node instanceof Operator) {
-				final int len = values.size();
 				final Operator.Type opType = ((Operator)node).getType();
-				final Object result, arg = values.remove(len - 1);
-				switch (opType.getArgumentNumber()) {
-				case 1:
-					result = opType.invoke(arg);
-					break;
-				case 2:
-					result = opType.invoke(values.remove(len - 2), arg);
-					break;
-				default:
-					throw new UnsupportedOperationException(); 
-				}
-				values.add(result);
+				values.add(
+					opType.invoke(getArguments(values, opType.getArgumentNumber())));
 			} else if (node instanceof FunctionValue) {
-				//TODO
+				final FunctionValue fv = (FunctionValue)node;
+				values.add(
+					scope.invoke(fv.getName(),
+						getArguments(values, fv.getArgumentNumber()), fv.getLine()));
 			} else {
 				values.add(eval(scope, node));
 			}
@@ -167,8 +167,30 @@ public class Translator {
 	private Object eval(Scope scope, VariableDefinition vdef) {
 		return eval(scope, vdef.getExpression());
 	}
+	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args) {
+		final Map<String, Object> argmap = new HashMap<String, Object>();
+		final ArgumentDefinition[] adefs = fdef.getArgumentDefinitions();
+		for (int j = 0; j < adefs.length; ++j) {
+			argmap.put(adefs[j].getName(),
+				j < args.length ? args[j]: adefs[j].getDefaultValue());
+		}
+
+		scope.pushLocalVariables(argmap);
+		final Object value = eval(scope, fdef.getExpression());
+		scope.popLocalVariables(); //clean up
+		return value;
+	}
 	private Object eval(Scope scope, VariableValue vv) {
-		return scope.get(vv.getName());
+		return scope.getVariable(vv.getName());
+	}
+	private Object[] getArguments(List<Object> values, int argc) {
+		int sz = values.size();
+		if (sz < argc)
+			throw new ZussException("Not enough argument: "+sz);
+		final Object[] args = new Object[argc];
+		while ( --argc >= 0)
+			args[argc] = values.remove(--sz);
+		return args;
 	}
 
 	private void write(String s) throws IOException {
@@ -188,10 +210,11 @@ public class Translator {
 
 	private class Scope {
 		private final Scope _parent;
-		private final Map<String, VariableDefinition> _vars = new HashMap<String, VariableDefinition>();
+		private final Map<String, Object> _vars = new HashMap<String, Object>();
 		/** The value is an instanceof {@link FunctionDefinition} or {@link Method}.
 		 */
-		private final Map<String, Object> _funs = new HashMap<String, Object>();
+		private final Map<String, FunctionDefinition> _funs = new HashMap<String, FunctionDefinition>();
+		private final List<Map<String, Object>> _locals = new LinkedList<Map<String, Object>>();
 
 		private Scope(Scope parent) {
 			_parent = parent;
@@ -200,26 +223,29 @@ public class Translator {
 		public Scope getParent() {
 			return _parent;
 		}
-		public void put(VariableDefinition vdef) {
-			final String nm = vdef.getName();
+		/** Stores a map of local variables. */
+		public void pushLocalVariables(Map<String, Object> vars) {
+			_locals.add(0, vars);
+		}
+		/** Removes the map of local variables pushed by the last invocation
+		 * to {@link #pushLocalVariables}.
+		 */
+		public void popLocalVariables() {
+			_locals.remove(0);
+		}
+
+		/** Stores a variable. */
+		public void putVariable(String name, Object value) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
-				if (scope._vars.containsKey(nm)) {
-					scope._vars.put(nm, vdef); //replace
+				if (scope._vars.containsKey(name)) {
+					scope._vars.put(name, value); //replace
 					return;
 				}
 			}
-			_vars.put(nm, vdef);
+			_vars.put(name, value);
 		}
-		public void put(String name, Method mtd) {
-			for (Scope scope = this; scope != null; scope = scope._parent) {
-				if (scope._funs.containsKey(name)) {
-					scope._funs.put(name, mtd); //replace
-					return;
-				}
-			}
-			_funs.put(name, vdef);
-		}
-		public void put(FunctionDefinition fdef) {
+		/** Stores a function definition. */
+		public void putFunction(FunctionDefinition fdef) {
 			final String nm = fdef.getName();
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				if (scope._funs.containsKey(nm)) {
@@ -227,26 +253,54 @@ public class Translator {
 					return;
 				}
 			}
-			_funs.put(nm, vdef);
+			_funs.put(nm, fdef);
 		}
+
 		/** Returns the variable value with the given name. */
-		public Object get(String name) {
+		public Object getVariable(String name) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
-				final VariableDefinition vdef = scope._vars.get(name);
-				if (vdef != null)
-					return eval(scope, vdef);
+				if (!scope._locals.isEmpty()) {
+					//Notice: we check only the topmost since the 2nd function
+					//shall not see the arguments of the 1st function 
+					Map<String, Object> vars = scope._locals.get(0);
+					final Object o = vars.get(name);
+					if (o != null || vars.containsKey(name))
+						return o;
+				}
+
+				Map<String, Object> vars = scope._vars;
+				final Object o = vars.get(name);
+				if (o != null || vars.containsKey(name))
+					return o;
+			}
+			return _resolver != null ? _resolver.getVariable(name): null;
+		}
+		/** Invokes a function. */
+		public Object invoke(String name, Object[] args, int lineno) {
+			for (Scope scope = this; scope != null; scope = scope._parent) {
+				final FunctionDefinition fdef = scope._funs.get(name);
+				if (fdef != null)
+					return eval(this, fdef, args);
 			}
 
 			if (_resolver != null) {
-				final Object o = _resolver.getVariable(name);
-				if (o != null)
-					return o.toString();
+				final Method mtd = _resolver.getMethod(name);
+				if (mtd != null) {
+					int j = mtd.getParameterTypes().length;
+					if (args.length < j) { //if not enough, all others assume null
+						final Object[] as = args;
+						args = new Object[j];
+						for (j = as.length; --j >= 0;)
+							args[j] = as[j];
+					}
+					try {
+						return mtd.invoke(args);
+					} catch (Exception ex) {
+						throw new ZussException("Unable to invoke "+mtd, lineno, ex);
+					}
+				}
 			}
-			return null;
-		}
-		/** Invokes a function. */
-		public Object invoke(String name, Object... args) {
-			return null;
+			throw new ZussException("Function not found: "+name, lineno);
 		}
 	}
 }

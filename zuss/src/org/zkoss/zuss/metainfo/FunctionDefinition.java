@@ -23,26 +23,31 @@ import java.util.Map;
 public class FunctionDefinition extends LeafInfo {
 	private final String _name;
 	private final Expression _expr;
+	private final ArgumentDefinition[] _args;
 	private final Method _mtd;
-	private final Map<String, String> _defValues;
 
-	public FunctionDefinition(NodeInfo parent, String name, Expression expr,
-	Map<String, String> defValues, int lineno) {
+	public FunctionDefinition(NodeInfo parent, String name,
+	ArgumentDefinition[] args, Expression expr, int lineno) {
 		super(parent, lineno);
 		_name = name;
+		_args = args;
 		_expr = expr;
 		_mtd = null;
-		_defValues = defValues;
 	}
-	public FunctionDefinition(NodeInfo parent, String name, Method mtd,
-	Map<String, String> defValues, int lineno) {
+	public FunctionDefinition(NodeInfo parent, String name,
+	ArgumentDefinition[] args, Method mtd, int lineno) {
 		super(parent, lineno);
 		_name = name;
+		_args = args;
 		_expr = null;
 		_mtd = mtd;
-		_defValues = defValues;
 	}
 
+	/** Returns the name of this function definition.
+	 */
+	public String getName() {
+		return _name;
+	}
 	/** Returns the expression, or null if this is a method ({@link #getMethod}).
 	 */
 	public Expression getExpression() {
@@ -52,6 +57,11 @@ public class FunctionDefinition extends LeafInfo {
 	 */
 	public Method getMethod() {
 		return _mtd;
+	}
+	/** Returns the argument definitions.
+	 */
+	public ArgumentDefinition[] getArgumentDefinitions() {
+		return _args;
 	}
 
 	@Override

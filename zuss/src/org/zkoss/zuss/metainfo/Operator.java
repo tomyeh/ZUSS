@@ -12,7 +12,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.metainfo;
 
-import org.zkoss.zuss.Utils;
+import org.zkoss.zuss.util.Operators;
 
 /**
  * Represents an operator.
@@ -44,92 +44,91 @@ public class Operator extends LeafInfo {
 		NEGATE( "-", 1, 2) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.negate(args[0]);
+				return Operators.negate(args[0]);
 			}
 		},
 		/** The addition. */
 		ADD("+", 4) {
 			@Override
 			public Object invoke(Object... args) {
-System.out.println(args[0]+","+args[1]);
-				return Utils.add(args[0], args[1]);
+				return Operators.add(args[0], args[1]);
 			}
 		},
 		/** The subtraction. */
 		SUBTRACT("-", 4) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.subtract(args[0], args[1]);
+				return Operators.subtract(args[0], args[1]);
 			}
 		},
 		/** The multiplication. */
 		MULTIPLY("*", 3) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.multiply(args[0], args[1]);
+				return Operators.multiply(args[0], args[1]);
 			}
 		},
 		/** The division. */
 		DIVIDE("/", 3) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.divide(args[0], args[1]);
+				return Operators.divide(args[0], args[1]);
 			}
 		},
 		/** Equals. */
 		EQ("==", 7) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.equals(args[0], args[1]);
+				return Operators.equals(args[0], args[1]);
 			}
 		},
 		/** Not equals. */
 		NE("!=", 7) {
 			@Override
 			public Object invoke(Object... args) {
-				return !Utils.equals(args[0], args[1]);
+				return !Operators.equals(args[0], args[1]);
 			}
 		},
 		/** The OR oeprator. */
 		OR("||", 12) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.or(args[0], args[1]);
+				return Operators.isTrue(args[0]) || Operators.isTrue(args[1]);
 			}
 		},
 		/** The AND operatr. */
 		AND("&&", 11) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.and(args[0], args[1]);
+				return Operators.isTrue(args[0]) && Operators.isTrue(args[1]);
 			}
 		},
 		/** Greater than. */
 		GT(">", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.compare(args[0], args[1]) > 0;
+				return Operators.compare(args[0], args[1]) > 0;
 			}
 		},
 		/** Less than. */
 		LT("<", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.compare(args[0], args[1]) < 0;
+				return Operators.compare(args[0], args[1]) < 0;
 			}
 		},
 		/** Greater than or equals. */
 		GE(">=", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.compare(args[0], args[1]) >= 0;
+				return Operators.compare(args[0], args[1]) >= 0;
 			}
 		},
 		/** Less than or equals. */
 		LE("<=", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Utils.compare(args[0], args[1]) <= 0;
+				return Operators.compare(args[0], args[1]) <= 0;
 			}
 		},
 		/** Left parenthesis, '('. Not a real operator but for parsing purpose. */

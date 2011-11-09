@@ -1,10 +1,10 @@
-@void: @f() + @g(2-3*@k());
-@two: @f(2, 3);
-@whatever: @f1(@a + 23, @f2(), @f3(23));
-div {color: @f(2 + @g())}
+@foo(@diff): @diff/@color;
+@darken(@color, @diff:  10%): @color * (1 - @foo(@diff));
+@nice_grey: #5B5B5B;
+div {color: @darken(@nice_grey);}
 
 @nice-blue: #5B83AD;
 @light-blue: @nice-blue + #111;
 
-div:hilite1 {color: @nice-blue}
-div:hilite2 {color: @light-blue}
+div.type1:hilite {color: @nice-blue}
+div.type2:hilite {color: @light-blue}

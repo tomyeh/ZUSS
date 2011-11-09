@@ -26,6 +26,8 @@ import org.zkoss.zuss.metainfo.SheetDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
+import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.ArgumentDefinition;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
 import org.zkoss.zuss.metainfo.VariableValue;
@@ -83,30 +85,52 @@ public class Parser {
 					throw new ZussException("{ expected; not "+token, token.getLine());
 				parseStyle(ctx, (Other)token);
 			} else {
-				throw new ZussException("unknown token "+token, token.getLine());
+				throw new ZussException("unknown "+token, getLine(token));
 			}
 		}
 	}
 
 	private void parseKeyword(Context ctx, Keyword kw) throws IOException {
+		//TODO
 	}
 
 	/** Parse a definition starts with {@link Id}. */
 	private void parseId(Context ctx, Id id) throws IOException {
+		final boolean old = ctx.state.expressioning;
+		ctx.state.expressioning = true;
+		parseId0(ctx, id);
+		ctx.state.expressioning = old;
+	}
+	private void parseId0(Context ctx, Id id) throws IOException {
 		Token t0 =  next(ctx);
 		if (t0 instanceof Symbol) {
 			final char symbol = ((Symbol)t0).getValue();
 			if (symbol == ':') { //variable definition
 				final Expression expr = new Expression(t0.getLine());
-					//note: expr is not a child of any node but part of VariableDefinition below
+					//note: expr is NOT a child of any node but part of VariableDefinition below
 				parseExpression(ctx, expr, ';');
-				new VariableDefinition(ctx.state.parent, id.getValue(), expr, id.getLine());
+				new VariableDefinition(
+					ctx.state.parent, id.getValue(), expr, id.getLine());
 				return;
-			} else if (symbol == '(') { //function or mixin
-				//TODO
+			}
+		} else if (t0 instanceof Op && ((Op)t0).getValue() == LPAREN) { //function or mixin
+			final ArgumentDefinition[] adefs = parseArguments(ctx);
+			t0 = next(ctx);
+			if (t0 instanceof Symbol) {
+				final char symbol = ((Symbol)t0).getValue();
+				if (symbol == ':') { //function definition
+					final Expression expr = new Expression(t0.getLine());
+						//note: expr is NOT a child of any node but part of VariableDefinition below
+					parseExpression(ctx, expr, ';');
+					new FunctionDefinition(
+						ctx.state.parent, id.getValue(), adefs, expr, id.getLine());
+					return;
+				} else if (symbol == '{') { //mixin
+					//TODO
+				}
 			}
 		}
-		throw new ZussException("unexpected "+t0, t0.getLine());
+		throw new ZussException("unexpected "+t0, getLine(t0));
 	}
 
 	/** Parse a definition starts with selector. */
@@ -115,12 +139,12 @@ public class Parser {
 		char symbol;
 		if (!(t0 instanceof Symbol)
 		|| ((symbol = ((Symbol)t0).getValue()) != ',' && symbol != '{'))
-			throw new ZussException(", or { expected after a selector", _in.getLine());
+			throw new ZussException(", or { expected after a selector", getLine(t0));
 
 		if (symbol == ',') {
 			Token t1 = next(ctx);
 			if (!(t1 instanceof Selector))
-				throw new ZussException("a selector expected after ','", t0.getLine());
+				throw new ZussException("a selector expected after ','", getLine(t1));
 			rdef.getSelectors().add(((Selector)t1).getValue());
 			parseSelector(ctx, rdef);
 		} else { //{
@@ -152,7 +176,7 @@ public class Parser {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
 					putback(token);
-					parseExpression(ctx, new Expression(token.getLine()), EOF);
+					parseExpression(ctx, new Expression(sdef, token.getLine()), EOF);
 						//note: the expression is a child of sdef
 				} else {
 					new VariableValue(sdef, ((Id)token).getValue(), token.getLine());
@@ -161,15 +185,56 @@ public class Parser {
 		}
 	}
 
+	private ArgumentDefinition[] parseArguments(Context ctx)
+	throws IOException {
+		final List<ArgumentDefinition> args = new LinkedList<ArgumentDefinition>();
+		Token token;
+		for (; (token = next(ctx)) != null;) {
+			if (!(token instanceof Id))
+				throw new ZussException("Argument must be defined with a variable (@xxx)", getLine(token));
+
+			final String name = ((Id)token).getValue();
+			String defValue = null;
+			Token t0 = next(ctx);
+			if (t0 instanceof Symbol) {
+				if (((Symbol)t0).getValue() == ':') {
+					t0 = next(ctx);
+					if (!(t0 instanceof Other))
+						throw new ZussException("unexpected "+t0, getLine(t0));
+					defValue = ((Other)t0).getValue();
+					t0 = next(ctx);
+				}
+			}
+			if (t0 instanceof Symbol) {
+				if (((Symbol)t0).getValue() == ',') {
+					args.add(new ArgumentDefinition(name, defValue, t0.getLine()));
+					continue;
+				}
+			} else if (t0 instanceof Op) {
+				if (((Op)t0).getValue() == RPAREN) {
+					args.add(new ArgumentDefinition(name, defValue, t0.getLine()));
+					return args.toArray(new ArgumentDefinition[args.size()]); //done
+				}
+			}
+			throw new ZussException("unexpected "+t0, getLine(t0));
+		}
+		throw new ZussException("')' expected", getLine(token));
+	}
+
+	private int getLine(Token token) {
+		return token != null ? token.getLine(): _in.getLine();
+	}
+
 	/**
 	 * @param endcc the character to denote the end of the expression.
 	 * If EOF, it means it is parsing @f(...) and it ends with the last ')'.
 	 */
 	private void parseExpression(Context ctx, Expression expr, final char endcc)
 	throws IOException {
+		final boolean old = ctx.state.expressioning;
 		ctx.state.expressioning = true;
 		parseExpression0(ctx, expr, endcc);
-		ctx.state.expressioning = false;
+		ctx.state.expressioning = old;
 	}
 	private void parseExpression0(Context ctx, Expression expr, final char endcc)
 	throws IOException {
