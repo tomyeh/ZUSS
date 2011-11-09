@@ -1,7 +1,7 @@
 @native(@a, @b: 123): @import org.zkoss.zuss.util.Operators#add;
 span.native {background: @native(111);}
 
-@foo(@diff): @diff/@color;
+@foo(@diff): @diff/2;
 @darken(@color, @diff:  10%): @color * (1 - @foo(@diff));
 @nice_grey: #5B5B5B;
 div {color: @darken(@nice_grey);}
