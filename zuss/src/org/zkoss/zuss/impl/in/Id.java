@@ -37,6 +37,6 @@ package org.zkoss.zuss.impl.in;
 
 	@Override
 	public String toString() {
-		return _value;
+		return '@' + _value;
 	}
 }

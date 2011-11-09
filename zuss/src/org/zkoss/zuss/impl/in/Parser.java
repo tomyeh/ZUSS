@@ -12,6 +12,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.in;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import org.zkoss.zuss.metainfo.VariableValue;
 import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.Operator;
 import static org.zkoss.zuss.metainfo.Operator.Type.*;
+import static org.zkoss.zuss.impl.in.Keyword.Value.*;
 
 /**
  * The ZUSS parser.
@@ -119,12 +121,29 @@ public class Parser {
 			if (t0 instanceof Symbol) {
 				final char symbol = ((Symbol)t0).getValue();
 				if (symbol == ':') { //function definition
-					final Expression expr = new Expression(t0.getLine());
-						//note: expr is NOT a child of any node but part of VariableDefinition below
-					parseExpression(ctx, expr, ';');
-					new FunctionDefinition(
-						ctx.state.parent, id.getValue(), adefs, expr, id.getLine());
-					return;
+					Token t1 = next(ctx);
+					if (t1 instanceof Keyword && ((Keyword)t1).getValue() == IMPORT) {
+						t0 = next(ctx);
+						if (!(t0 instanceof Other))
+							throw new ZussException("a class name expected, not "+t0, getLine(t0));
+						t1 = next(ctx);
+						if (!(t1 instanceof Symbol) || ((Symbol)t1).getValue() != ';')
+							throw new ZussException("';' expected", getLine(t1));
+
+						final Method mtd = Classes.getMethod(
+							((Other)t0).getValue(), id.getValue(), adefs.length, t0.getLine());
+						new FunctionDefinition(
+							ctx.state.parent, id.getValue(), adefs, mtd, id.getLine());
+						return;
+					} else {
+						putback(t1);
+						final Expression expr = new Expression(t0.getLine());
+							//note: expr is NOT a child of any node but part of VariableDefinition below
+						parseExpression(ctx, expr, ';');
+						new FunctionDefinition(
+							ctx.state.parent, id.getValue(), adefs, expr, id.getLine());
+						return;
+					}
 				} else if (symbol == '{') { //mixin
 					//TODO
 				}

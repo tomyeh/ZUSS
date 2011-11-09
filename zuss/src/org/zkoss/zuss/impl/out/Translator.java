@@ -21,6 +21,8 @@ import java.io.Writer;
 import java.io.IOException;
 
 import org.zkoss.zuss.Resolver;
+import org.zkoss.zuss.ZussException;
+import org.zkoss.zuss.util.Classes;
 import org.zkoss.zuss.metainfo.NodeInfo;
 import org.zkoss.zuss.metainfo.SheetDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
@@ -34,7 +36,6 @@ import org.zkoss.zuss.metainfo.ConstantValue;
 import org.zkoss.zuss.metainfo.VariableValue;
 import org.zkoss.zuss.metainfo.Operator;
 import static org.zkoss.zuss.metainfo.Operator.Type.*;
-import org.zkoss.zuss.ZussException;
 
 /**
  * The translator used to translate ZUSS to CSS.
@@ -151,13 +152,14 @@ public class Translator {
 		for (NodeInfo node: expr.getChildren()) {
 			if (node instanceof Operator) {
 				final Operator.Type opType = ((Operator)node).getType();
-				values.add(
-					opType.invoke(getArguments(values, opType.getArgumentNumber())));
+				values.add(opType.invoke(getArguments(
+					values, opType.getArgumentNumber(), node.getLine())));
 			} else if (node instanceof FunctionValue) {
 				final FunctionValue fv = (FunctionValue)node;
 				values.add(
 					scope.invoke(fv.getName(),
-						getArguments(values, fv.getArgumentNumber()), fv.getLine()));
+						getArguments(values, fv.getArgumentNumber(), fv.getLine()),
+						fv.getLine()));
 			} else {
 				values.add(eval(scope, node));
 			}
@@ -167,26 +169,43 @@ public class Translator {
 	private Object eval(Scope scope, VariableDefinition vdef) {
 		return eval(scope, vdef.getExpression());
 	}
-	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args) {
-		final Map<String, Object> argmap = new HashMap<String, Object>();
+	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args, int lineno) {
 		final ArgumentDefinition[] adefs = fdef.getArgumentDefinitions();
-		for (int j = 0; j < adefs.length; ++j) {
-			argmap.put(adefs[j].getName(),
-				j < args.length ? args[j]: adefs[j].getDefaultValue());
+		final Object value;
+		final Expression expr = fdef.getExpression();
+		if (expr != null) {
+			final Map<String, Object> argmap = new HashMap<String, Object>();
+			for (int j = 0; j < adefs.length; ++j) {
+				argmap.put(adefs[j].getName(),
+					j < args.length ? args[j]: adefs[j].getDefaultValue());
+			}
+			scope.pushLocalVariables(argmap);
+			value = eval(scope, expr);
+			scope.popLocalVariables(); //clean up
+		} else {
+			final Method m = fdef.getMethod();
+			final Class<?>[] argTypes = m.getParameterTypes();
+			final Object[] as = args;
+			if (args.length != argTypes.length)
+				args = new Object[argTypes.length];
+			for (int j = 0; j < argTypes.length; ++j)
+				args[j] = Classes.coerce(argTypes[j],
+					j < as.length ? as[j]: adefs[j].getDefaultValue());
+			try {
+				value = m.invoke(null, args);
+			} catch (Throwable ex) {
+				throw new ZussException("failed to invoke "+m, lineno, ex);
+			}
 		}
-
-		scope.pushLocalVariables(argmap);
-		final Object value = eval(scope, fdef.getExpression());
-		scope.popLocalVariables(); //clean up
 		return value;
 	}
 	private Object eval(Scope scope, VariableValue vv) {
 		return scope.getVariable(vv.getName());
 	}
-	private Object[] getArguments(List<Object> values, int argc) {
+	private Object[] getArguments(List<Object> values, int argc, int lineno) {
 		int sz = values.size();
 		if (sz < argc)
-			throw new ZussException("Not enough argument: "+sz);
+			throw new ZussException("Not enough argument: "+sz, lineno);
 		final Object[] args = new Object[argc];
 		while ( --argc >= 0)
 			args[argc] = values.remove(--sz);
@@ -280,7 +299,7 @@ public class Translator {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				final FunctionDefinition fdef = scope._funs.get(name);
 				if (fdef != null)
-					return eval(this, fdef, args);
+					return eval(this, fdef, args, lineno);
 			}
 
 			if (_resolver != null) {
