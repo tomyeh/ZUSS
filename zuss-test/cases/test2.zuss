@@ -1,3 +1,4 @@
+/*test of function and variable*/
 @native(@a, @b: 123): @import org.zkoss.zuss.util.Operators#add;
 span.native {background: @native(111);}
 

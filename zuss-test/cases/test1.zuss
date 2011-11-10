@@ -1,4 +1,4 @@
-/*test.zuss*/
+/*test of nested rule */
 div #simple {
 	border: 1px solid blue;
 	margin: 2px 3px;

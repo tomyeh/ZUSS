@@ -14,7 +14,6 @@ package org.zkoss.zuss.impl.in;
 
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.LinkedList;
 import java.util.ArrayList;
 import java.io.Reader;
 import java.io.InputStream;
@@ -28,6 +27,7 @@ import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
@@ -47,8 +47,6 @@ public class Parser {
 
 	private final Tokenizer _in;
 	private final Locator _loc;
-	/** Read ahead (used to implement {@link #putback}. */
-	private Token _ahead;
 
 	public Parser(Reader in, Locator loc) {
 		_in = new Tokenizer(in);
@@ -116,7 +114,29 @@ public class Parser {
 					ctx.state.parent, id.getValue(), expr, id.getLine());
 				return;
 			}
-		} else if (t0 instanceof Op && ((Op)t0).getValue() == LPAREN) { //function or mixin
+		} else if (t0 instanceof Op && ((Op)t0).getValue() == LPAREN) {
+			//1) definition of function or mixin
+			//2) use of function or mixin
+			char cc = _in.peekAfterRPAREN();
+			if (cc == ';' || cc == '}' || cc == EOF) { //use of function/mixin
+				putback(t0);
+				putback(id);
+				parseExpression(ctx, new Expression(ctx.state.parent, id.getLine()), EOF);
+
+				t0 = next(ctx);
+				if (t0 instanceof Symbol) {
+					switch (((Symbol)t0).getValue()) {
+					case '}':
+						putback(t0);
+						//fall thru
+					case ';':
+						return; //done
+					}
+				}
+				throw new ZussException("expected ';', not "+t0, getLine(t0));
+			}
+
+			//definition of function/mixin
 			final ArgumentDefinition[] adefs = parseArguments(ctx);
 			t0 = next(ctx);
 			if (t0 instanceof Symbol) {
@@ -146,7 +166,12 @@ public class Parser {
 						return;
 					}
 				} else if (symbol == '{') { //mixin
-					//TODO
+					final MixinDefinition mdef = new MixinDefinition(
+						ctx.state.parent, id.getValue(), adefs, id.getLine());
+					ctx.push(new State(mdef, true));
+					parse(ctx);
+					ctx.pop();
+					return;
 				}
 			}
 		}
@@ -207,8 +232,12 @@ public class Parser {
 
 	private ArgumentDefinition[] parseArguments(Context ctx)
 	throws IOException {
-		final List<ArgumentDefinition> args = new LinkedList<ArgumentDefinition>();
-		Token token;
+		Token token = next(ctx);
+		if (token instanceof Op && ((Op)token).getValue() == RPAREN)
+			return new ArgumentDefinition[0];
+		putback(token);
+
+		final List<ArgumentDefinition> args = new ArrayList<ArgumentDefinition>();
 		for (; (token = next(ctx)) != null;) {
 			if (!(token instanceof Id))
 				throw new ZussException("Argument must be defined with a variable (@xxx)", getLine(token));
@@ -265,6 +294,10 @@ public class Parser {
 				char cc = ((Symbol)token).getValue();
 				if (cc == endcc)
 					break; //done
+				if (endcc == EOF && (cc == ';' || cc == '}')) {
+					putback(token);
+					break;
+				}
 				if (cc != ',')
 					throw new ZussException("unexpected "+token, token.getLine());
 				if (!opExpected)
@@ -377,25 +410,16 @@ public class Parser {
 			throw new ZussException("expression expected", expr.getLine());
 	}
 
-	private void putback(Token token) throws IOException {
-		if (token != null) {
-			if (_ahead != null)
-				throw new InternalError("Only one putback allowed"+token);
-			_ahead = token;
-		}
+	private void putback(Token token) {
+		_in.putback(token);
 	}
 	private Token next(Context ctx) throws IOException {
-		if (_ahead != null) {
-			Token token = _ahead;
-			_ahead = null;
-			return token;
-		}
 		return _in.next(ctx.state.expressioning);
 	}
 
 	private class Context {
 		private final SheetDefinition sheet = new SheetDefinition();
-		private final List<State> _states = new LinkedList<State>();
+		private final List<State> _states = new ArrayList<State>();
 		private State state = new State(sheet, false);
 
 		private void push(State state) {

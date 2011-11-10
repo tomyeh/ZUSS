@@ -1,0 +1,17 @@
+/*test of mixin*/
+@border_radious(@radius: 4px) {
+	border-radius: @radius;
+	-moz-border-radius: @radius;
+	-webkit-border-radius: @radius;
+	div {
+		border: @radius solid blue;
+	}
+}
+@thin: 3px;
+
+div.rounded {
+	@border_radious();
+}
+button.rounded {
+	@border_radious(@thin);
+}

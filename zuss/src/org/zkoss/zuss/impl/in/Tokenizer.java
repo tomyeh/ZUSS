@@ -12,6 +12,8 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.in;
 
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.HashSet;
 import java.io.Reader;
@@ -45,6 +47,8 @@ import org.zkoss.zuss.metainfo.Operator;
 	};
 
 	private final Input _in;
+	/** Read ahead (used to implement {@link #putback}. */
+	private final List<Token> _ahead = new ArrayList<Token>();
 
 	public Tokenizer(Reader in) {
 		_in = new Input(in);
@@ -60,11 +64,18 @@ import org.zkoss.zuss.metainfo.Operator;
 	public int getLine() {
 		return _in.getLine();
 	}
+	public void putback(Token token) {
+		if (token != null)
+			_ahead.add(0, token);
+	}
 	/** Returns the next token, or null if EOF (end-of-file).
 	 * @param expressioning whether the caller is expecting an expression,
 	 * i.e., the operator is recognized.
 	 */
 	public Token next(boolean expressioning) throws IOException {
+		if (!_ahead.isEmpty())
+			return _ahead.remove(0);
+
 		char cc;
 		do {
 			cc = _in.next();
@@ -101,7 +112,7 @@ import org.zkoss.zuss.metainfo.Operator;
 		}
 		return asOther(cc, expressioning);
 	}
-	/** Peeks the nnext none-whitespace character.
+	/** Peeks the next none-whitespace character.
 	 * It won't change the state of this tokenizer.
 	 * @return the next none-whitespace character.
 	 */
@@ -111,6 +122,26 @@ import org.zkoss.zuss.metainfo.Operator;
 			cc = _in.next();
 		} while (WHITESPACES.indexOf(cc) >= 0);
 		_in.putback(cc);
+		return cc;
+	}
+	/** Peeks the next non-whitespace character after the right parenthesis
+	 * of a function or mixin.
+	 * <p>Notice it shall be called right after LPAREN is returned.
+	 */
+	public char peekAfterRPAREN() throws IOException {
+		final StringBuffer sb = new StringBuffer();
+		int cparen = 1;
+		char cc;
+		while ((cc = _in.next()) != EOF) {
+			sb.append(cc);
+			if (cc == '(') {
+				++cparen;
+			} else if (cc == ')' && --cparen == 0) {
+				cc = peek();
+				break;
+			}
+		}
+		_in.putback(sb);
 		return cc;
 	}
 

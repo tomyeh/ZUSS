@@ -29,6 +29,7 @@ import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.FunctionValue;
@@ -89,25 +90,69 @@ public class Translator {
 
 		final String head = cat(thisSels) + "{\n", end = "}\n";
 		boolean empty = true;
-		for (NodeInfo node: rdef.getChildren()) {
-			if (node instanceof RuleDefinition) {
-				if (!empty) {
-					empty = true;
-					write(end);
-				}
-				outRule(new Scope(scope), thisSels, (RuleDefinition)node);
-			} else if (node instanceof StyleDefinition) {
+
+		for (NodeInfo node: rdef.getChildren())
+			empty = outRuleInner(scope, thisSels, node, head, end, empty);
+
+		if (!empty)
+			write(end);
+	}
+	private boolean outRuleInner(Scope scope, List<String> thisSels,
+	NodeInfo node, String head, String end, boolean empty)
+	throws IOException {
+		if (node instanceof RuleDefinition) {
+			if (!empty) {
+				empty = true;
+				write(end);
+			}
+			outRule(new Scope(scope), thisSels, (RuleDefinition)node);
+		} else if (node instanceof StyleDefinition) {
+			if (empty) {
+				empty = false;
+				write(head);
+			}
+			outStyle(scope, (StyleDefinition)node);
+		} else if (node instanceof Expression) {
+			final Expression expr = (Expression)node;
+			final List<NodeInfo> exprList = expr.getChildren();
+			final int j;
+			final NodeInfo lastChild;
+			final FunctionValue fv;
+			final NodeInfo fn;
+			if ((j = exprList.size() - 1) >= 0
+			&& ((lastChild=exprList.get(j)) instanceof FunctionValue)
+			&& (fn = scope.getFunction((fv=(FunctionValue)lastChild).getName())) instanceof MixinDefinition) {
+			//handle mixin
 				if (empty) {
 					empty = false;
 					write(head);
 				}
-				outStyle(scope, (StyleDefinition)node);
+
+				List<Object> values = evalExpression(scope, exprList.subList(0, j));
+				final Scope subsc = new Scope(scope);
+				subsc.pushLocalVariables(getArgumentMap(
+					((MixinDefinition)fn).getArgumentDefinitions(),
+					getArguments(values, fv.getArgumentNumber(), fv.getLine())));
+
+				for (NodeInfo subnd: fn.getChildren())
+					empty = outRuleInner(subsc, thisSels, subnd, head, end, empty);
+
+				subsc.popLocalVariables(); //clean up
 			} else {
-				outOther(scope, node);
+			//handle normal expression
+				final Object o = eval(scope, expr);
+				if (o != null) {
+					if (empty) {
+						empty = false;
+						write(head);
+					}
+					write(o.toString());
+				}
 			}
+		} else {
+			outOther(scope, node);
 		}
-		if (!empty)
-			write(end);
+		return empty;
 	}
 	private void outStyle(Scope scope, StyleDefinition sdef) throws IOException {
 		write('\t');
@@ -133,6 +178,8 @@ public class Translator {
 				//spec: evaluate when it is defined (not when it is used)
 		} else if (node instanceof FunctionDefinition) {
 			scope.putFunction((FunctionDefinition)node);
+		} else if (node instanceof MixinDefinition) {
+			scope.putFunction((MixinDefinition)node);
 		} else {
 			throw new ZussException("unknown "+node, node.getLine());
 		}
@@ -148,38 +195,67 @@ public class Translator {
 		throw new ZussException("unknown "+node, node.getLine());
 	}
 	private Object eval(Scope scope, Expression expr) {
+		final List<Object> values = evalExpression(scope, expr.getChildren());
+		if (values.size() != 1)
+			throw new ZussException("failed evaluate "+expr+": "+values, expr.getLine());
+		return values.get(0);
+	}
+	private List<Object> evalExpression(Scope scope, List<NodeInfo> exprList) {
 		final List<Object> values = new LinkedList<Object>();
-		for (NodeInfo node: expr.getChildren()) {
+		for (NodeInfo node: exprList) {
 			if (node instanceof Operator) {
 				final Operator.Type opType = ((Operator)node).getType();
 				values.add(opType.invoke(getArguments(
 					values, opType.getArgumentNumber(), node.getLine())));
 			} else if (node instanceof FunctionValue) {
 				final FunctionValue fv = (FunctionValue)node;
-				values.add(
-					scope.invoke(fv.getName(),
-						getArguments(values, fv.getArgumentNumber(), fv.getLine()),
-						fv.getLine()));
+				final NodeInfo fn = scope.getFunction(fv.getName());
+				final int lineno = fv.getLine();
+				final Object[] args = getArguments(values, fv.getArgumentNumber(), lineno);
+				if (fn instanceof FunctionDefinition) {
+					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
+				} else if (fn instanceof MixinDefinition) {
+					throw new ZussException("not allowed, "+fn, lineno);
+				} else {
+					values.add(invoke(fv.getName(), args, lineno));
+				}
 			} else {
 				values.add(eval(scope, node));
 			}
 		}
-		return values.isEmpty() ? null: values.get(0);
+		return values;
+	}
+	/** Invokes a function. */
+	public Object invoke(String name, Object[] args, int lineno) {
+		if (_resolver != null) {
+			final Method mtd = _resolver.getMethod(name);
+			if (mtd != null) {
+				int j = mtd.getParameterTypes().length;
+				if (args.length < j) { //if not enough, all others assume null
+					final Object[] as = args;
+					args = new Object[j];
+					for (j = as.length; --j >= 0;)
+						args[j] = as[j];
+				}
+				try {
+					return mtd.invoke(args);
+				} catch (Exception ex) {
+					throw new ZussException("Unable to invoke "+mtd, lineno, ex);
+				}
+			}
+		}
+		throw new ZussException("Function not found: "+name, lineno);
 	}
 	private Object eval(Scope scope, VariableDefinition vdef) {
 		return eval(scope, vdef.getExpression());
 	}
-	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args, int lineno) {
+	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args,
+	int lineno) {
 		final ArgumentDefinition[] adefs = fdef.getArgumentDefinitions();
 		final Object value;
 		final Expression expr = fdef.getExpression();
 		if (expr != null) {
-			final Map<String, Object> argmap = new HashMap<String, Object>();
-			for (int j = 0; j < adefs.length; ++j) {
-				argmap.put(adefs[j].getName(),
-					j < args.length ? args[j]: adefs[j].getDefaultValue());
-			}
-			scope.pushLocalVariables(argmap);
+			scope.pushLocalVariables(getArgumentMap(adefs, args));
 			value = eval(scope, expr);
 			scope.popLocalVariables(); //clean up
 		} else {
@@ -198,6 +274,15 @@ public class Translator {
 			}
 		}
 		return value;
+	}
+	private static Map<String, Object>
+	getArgumentMap(ArgumentDefinition[] adefs, Object[] args) {
+		final Map<String, Object> argmap = new HashMap<String, Object>();
+		for (int j = 0; j < adefs.length; ++j) {
+			argmap.put(adefs[j].getName(),
+				j < args.length ? args[j]: adefs[j].getDefaultValue());
+		}
+		return argmap;
 	}
 	private Object eval(Scope scope, VariableValue vv) {
 		return scope.getVariable(vv.getName());
@@ -230,9 +315,9 @@ public class Translator {
 	private class Scope {
 		private final Scope _parent;
 		private final Map<String, Object> _vars = new HashMap<String, Object>();
-		/** The value is an instanceof {@link FunctionDefinition} or {@link Method}.
+		/** The value is an instanceof {@link FunctionDefinition} or {@link MuxinDefinition}.
 		 */
-		private final Map<String, FunctionDefinition> _funs = new HashMap<String, FunctionDefinition>();
+		private final Map<String, NodeInfo> _funs = new HashMap<String, NodeInfo>();
 		private final List<Map<String, Object>> _locals = new LinkedList<Map<String, Object>>();
 
 		private Scope(Scope parent) {
@@ -265,14 +350,19 @@ public class Translator {
 		}
 		/** Stores a function definition. */
 		public void putFunction(FunctionDefinition fdef) {
-			final String nm = fdef.getName();
+			putFunction(fdef.getName(), fdef);
+		}
+		public void putFunction(MixinDefinition mdef) {
+			putFunction(mdef.getName(), mdef);
+		}
+		private void putFunction(String name, NodeInfo node) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
-				if (scope._funs.containsKey(nm)) {
-					scope._funs.put(nm, fdef); //replace
+				if (scope._funs.containsKey(name)) {
+					scope._funs.put(name, node); //replace
 					return;
 				}
 			}
-			_funs.put(nm, fdef);
+			_funs.put(name, node);
 		}
 
 		/** Returns the variable value with the given name. */
@@ -294,32 +384,16 @@ public class Translator {
 			}
 			return _resolver != null ? _resolver.getVariable(name): null;
 		}
-		/** Invokes a function. */
-		public Object invoke(String name, Object[] args, int lineno) {
+		/** Returns {@link FunctionDefinition} or {@link MixinDefinition}
+		 * of the given name, or null if not exists.
+		 */
+		public NodeInfo getFunction(String name) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
-				final FunctionDefinition fdef = scope._funs.get(name);
-				if (fdef != null)
-					return eval(this, fdef, args, lineno);
+				final NodeInfo node = scope._funs.get(name);
+				if (node != null)
+					return node;
 			}
-
-			if (_resolver != null) {
-				final Method mtd = _resolver.getMethod(name);
-				if (mtd != null) {
-					int j = mtd.getParameterTypes().length;
-					if (args.length < j) { //if not enough, all others assume null
-						final Object[] as = args;
-						args = new Object[j];
-						for (j = as.length; --j >= 0;)
-							args[j] = as[j];
-					}
-					try {
-						return mtd.invoke(args);
-					} catch (Exception ex) {
-						throw new ZussException("Unable to invoke "+mtd, lineno, ex);
-					}
-				}
-			}
-			throw new ZussException("Function not found: "+name, lineno);
+			return null;
 		}
 	}
 }

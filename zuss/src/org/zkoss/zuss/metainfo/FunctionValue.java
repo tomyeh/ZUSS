@@ -42,6 +42,6 @@ public class FunctionValue extends LeafInfo {
 
 	@Override
 	public String toString() {
-		return '@' + _name + '(' + _argc + ')';
+		return '@' + _name + "(#" + _argc + ')';
 	}
 }
