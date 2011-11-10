@@ -12,6 +12,8 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.util;
 
+import org.zkoss.zuss.ZussException;
+
 /**
  * Represents a font size.
  * @author tomyeh
@@ -32,26 +34,73 @@ public class Size {
 		size = j > 0 ? Double.parseDouble(s.substring(0, j)): 0;
 		measure = j >= 0 ? s.substring(j): s;
 	}
+	public Size(double size, String measure) {
+		this.size = size;
+		this.measure = measure;
+	}
+
+	/** Returns an integer representing this size.
+	 */
+	public double getValue() {
+		return size;
+	}
 
 	/** Return a size that negates this size.
 	 */
 	public Size negate() {
-		return this;
+		throw new ZussException("Unable to negate a size, "+this);
 	}
 	/** Returns a size that adds this size and the given object.
 	 */
 	public Size add(Object o) {
-		return this;
+		if (o instanceof Number)
+			return new Size(size + ((Number)o).doubleValue(), measure);
+		if (o instanceof Size)
+			return new Size(size + ((Size)o).size, measure);
+		throw new ZussException("Unable to add "+this+" with "+o);
 	}
 	/** Returns a size that subtracts this size and the given object.
 	 */
 	public Size subtract(Object o) {
-		return this;
+		if (o instanceof Number)
+			return new Size(size - ((Number)o).doubleValue(), measure);
+		if (o instanceof Size)
+			return new Size(size - ((Size)o).size, measure);
+		throw new ZussException("Unable to subtract "+this+" with "+o);
+	}
+	/** Returns a size that multiplies this size with the given object.
+	 */
+	public Size multiply(Object o) {
+		if (o instanceof Number)
+			return new Size(round(size * ((Number)o).doubleValue()), measure);
+		if (o instanceof Size)
+			return new Size(round(size * ((Size)o).size), measure);
+		throw new ZussException("Unable to multiply "+this+" with "+o);
+	}
+	/** Returns a size that divides this size with the given object.
+	 */
+	public Size divide(Object o) {
+		if (o instanceof Number)
+			return new Size(round(size / ((Number)o).doubleValue()), measure);
+		if (o instanceof Size)
+			return new Size(round(size / ((Size)o).size), measure);
+		throw new ZussException("Unable to divide "+this+" with "+o);
+	}
+	private static double round(double val) {
+		return Math.round(val * 10) / 10.0; //only one digit
 	}
 
 	@Override
 	public String toString() {
-		return size + measure;
+		String s = Double.toString(size);
+		for (int j = s.length(); --j >= 0;) { //removing ending .0
+			final char cc = s.charAt(j);
+			if (cc != '0') {
+				s = s.substring(0, cc == '.' ? j: j + 1);
+				break;
+			}
+		}
+		return s + measure;
 	}
 	@Override
 	public int hashCode() {

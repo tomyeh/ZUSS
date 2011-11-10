@@ -27,15 +27,20 @@ public class Color {
 
 	/** Returns the color of the given name. */
 	public static Color getColor(String rgb) {
-		final Color c = _colors.get(rgb.toLowerCase());
+		final Color c = getStandardColor(rgb);
 		return c != null ? c: new Color(rgb);
+	}
+	/** Returns the starndard color, or null if it is not a standard color.
+	 */
+	public static Color getStandardColor(String name) {
+		return _colors.get(name.toLowerCase());
 	}
 
 	public Color(int value) {
 		this(value & 0xff0000, value & 0xff00, value & 0xff);
 	}
 	public Color(String rgb) {
-		final Color c = _colors.get(rgb.toLowerCase());
+		final Color c = getStandardColor(rgb);
 		if (c != null) {
 			red = c.red;
 			green = c.green;
@@ -56,31 +61,94 @@ public class Color {
 		_name = rgb;
 	}
 	public Color(int red, int green, int blue) {
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
+		this.red = red > 255 ? 255: red < 0 ? 0: red;
+		this.green = green > 255 ? 255: green < 0 ? 0: green;
+		this.blue = blue > 255 ? 255: blue < 0 ? 0: blue;
 
-		final StringBuffer sb = new StringBuffer().append('#');
-		encode(sb, red);
-		encode(sb, green);
-		encode(sb, blue);
-		_name = sb.toString();
+		final String s = _names.get(this);
+		if (s != null) {
+			_name = s;
+		} else {
+			final StringBuffer sb = new StringBuffer().append('#');
+			encode(sb, this.red);
+			encode(sb, this.green);
+			encode(sb, this.blue);
+			_name = sb.toString();
+		}
 	}
 
 	/** Return a color that negates this color.
 	 */
 	public Color negate() {
-		return this;
+		return new Color(255 - red, 255 - green, 255 - blue);
 	}
 	/** Returns a color that adds this color and the given object.
 	 */
 	public Color add(Object o) {
-		return this;
+		if (o instanceof Number) {
+			o = new Color(((Number)o).intValue());
+		} else if (o instanceof String) {
+			o = Color.getColor((String)o);
+		}
+		if (o instanceof Color) {
+			Color c = (Color)o;
+			return new Color(red + c.red, green + c.green, blue + c.blue);
+		}
+		if (o == null)
+			return this;
+		throw new ZussException("Unable to add "+this+" with "+o);
 	}
 	/** Returns a color that subtracts this color and the given object.
 	 */
 	public Color subtract(Object o) {
-		return this;
+		if (o instanceof Number) {
+			o = new Color(((Number)o).intValue());
+		} else if (o instanceof String) {
+			o = Color.getColor((String)o);
+		}
+		if (o instanceof Color) {
+			Color c = (Color)o;
+			return new Color(red - c.red, green - c.green, blue - c.blue);
+		}
+		if (o == null)
+			return this;
+		throw new ZussException("Unable to subtract "+this+" with "+o);
+	}
+	/** Returns a color that multiplies this color with the given object.
+	 */
+	public Color multiply(Object o) {
+		if (o instanceof Number) {
+			double v = ((Number)o).doubleValue();
+			return new Color((int)Math.round(red * v),
+				(int)Math.round(green * v), (int)Math.round(blue * v));
+		}
+		if (o instanceof Color) {
+			Color c = (Color)o;
+			return new Color(red * c.red, green * c.green, blue * c.blue);
+		}
+		if (o == null)
+			return this;
+		throw new ZussException("Unable to multiply "+this+" with "+o);
+	}
+	/** Returns a color that divides this color with the given object.
+	 */
+	public Color divide(Object o) {
+		if (o instanceof Number) {
+			double v = ((Number)o).doubleValue();
+			return new Color((int)Math.round(red / v),
+				(int)Math.round(green / v), (int)Math.round(blue / v));
+		}
+		if (o instanceof Color) {
+			Color c = (Color)o;
+			return new Color(red / c.red, green / c.green, blue / c.blue);
+		}
+		throw new ZussException("Unable to divide "+this+" with "+o);
+	}
+
+	/** Returns an integer representing this color
+	 */
+	public int getValue() {
+		return (red << 16) + (green << 8) + blue;
 	}
 
 	@Override
@@ -89,7 +157,7 @@ public class Color {
 	}
 	@Override
 	public int hashCode() {
-		return (red << 0x10000) + (green << 0x100) + blue;
+		return getValue();
 	}
 	@Override
 	public boolean equals(Object o) {
@@ -122,18 +190,13 @@ public class Color {
 	}
 	private static void encode(StringBuffer sb, int c) {
 		final String s = Integer.toHexString(c);
-		switch (s.length()) {
-		case 1:
+		if (s.length() == 1)
 			sb.append('0');
-		case 2:
-			sb.append(s);
-			break; //done
-		default:
-			sb.append("ff");
-		}
+		sb.append(s);
 	}
 
 	private static Map<String, Color> _colors = new HashMap<String, Color>(196);
+	private static Map<Color, String> _names = new HashMap<Color, String>(196);
 	static {
 		String[] colors = {
 			"aliceblue", "#f0f8ff",
@@ -283,7 +346,9 @@ public class Color {
 			"whitesmoke", "#f5f5f5",
 			"yellow", "#ffff00",
 			"yellowgreen", "#9acd32"};
-		for (int j = 0; j < colors.length; j += 2)
+		for (int j = 0; j < colors.length; j += 2) {
 			_colors.put(colors[j], new Color(colors[j + 1]));
+			_names.put(new Color(colors[j + 1]), colors[j]);
+		}
 	}
 }

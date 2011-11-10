@@ -1,13 +1,18 @@
 @native(@a, @b: 123): @import org.zkoss.zuss.util.Operators#add;
 span.native {background: @native(111);}
 
-@foo(@diff): @diff/2;
-@darken(@color, @diff:  10%): @color * (1 - @foo(@diff));
+@half(@diff): @diff/2;
+@darken(@color, @diff:  10%): @color * (1 - @half(@diff));
 @nice_grey: #5B5B5B;
 div {color: @darken(@nice_grey);}
 
 @nice-blue: #5B83AD;
 @light-blue: @nice-blue + #111;
+@dark-orange: orange - #001900;
 
 div.type1:hilite {color: @nice-blue}
-div.type2:hilite {color: @light-blue}
+div.type2:hilite {color: @light-blue; background: @dark-orange}
+
+@size: 10pt;
+div.box {border: @darken(@size) solid blue;}
+div.box2 {border: @darken(@size, .3) solid blue;}

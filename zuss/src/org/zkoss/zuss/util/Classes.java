@@ -48,6 +48,10 @@ public class Classes {
 				return new Integer(((Number)val).intValue());
 			} else if (val instanceof String) {
 				return new Integer((String)val);
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue();
+			} else if (val instanceof Size) {
+				return (int)((Size)val).getValue();
 			}
 		} else if (Boolean.class == cls || boolean.class == cls) {
 			if (val == null) {
@@ -58,6 +62,10 @@ public class Classes {
 				return Boolean.valueOf((String)val);
 			} else if (val instanceof Number) {
 				return Boolean.valueOf(((Number)val).intValue() != 0);
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue() != 0;
+			} else if (val instanceof Size) {
+				return ((Size)val).getValue() != 0;
 			} else {
 				return Boolean.TRUE; //non-null is true
 			}
@@ -70,6 +78,8 @@ public class Classes {
 				return new Short(((Number)val).shortValue());
 			} else if (val instanceof String) {
 				return new Short((String)val);
+			} else if (val instanceof Size) {
+				return (short)((Size)val).getValue();
 			}
 		} else if (Long.class == cls || long.class == cls) {
 			if (val == null) {
@@ -82,6 +92,10 @@ public class Classes {
 				return new Long((String)val);
 			} else if (val instanceof Date) {
 				return new Long(((Date)val).getTime());
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue();
+			} else if (val instanceof Size) {
+				return (long)((Size)val).getValue();
 			}
 		} else if (Double.class == cls || double.class == cls) {
 			if (val == null) {
@@ -94,6 +108,10 @@ public class Classes {
 				return new Double((String)val);
 			} else if (val instanceof Date) {
 				return new Double(((Date)val).getTime());
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue();
+			} else if (val instanceof Size) {
+				return ((Size)val).getValue();
 			}
 		} else if (Float.class == cls || float.class == cls) {
 			if (val == null) {
@@ -106,6 +124,10 @@ public class Classes {
 				return new Float((String)val);
 			} else if (val instanceof Date) {
 				return new Float(((Date)val).getTime());
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue();
+			} else if (val instanceof Size) {
+				return (float)((Size)val).getValue();
 			}
 		} else if (Byte.class == cls || byte.class == cls) {
 			if (val == null) {
@@ -116,6 +138,8 @@ public class Classes {
 				return new Byte(((Number)val).byteValue());
 			} else if (val instanceof String) {
 				return new Byte((String)val);
+			} else if (val instanceof Size) {
+				return (byte)((Size)val).getValue();
 			}
 		} else if (Character.class == cls || char.class == cls) {
 			if (val == null) {
@@ -143,6 +167,10 @@ public class Classes {
 					new Double(s): new Integer(s);
 			} else if (val instanceof Date) {
 				return new Long(((Date)val).getTime());
+			} else if (val instanceof Color) {
+				return ((Color)val).getValue();
+			} else if (val instanceof Size) {
+				return ((Size)val).getValue();
 			}
 		} else {
 			if (val == null) {

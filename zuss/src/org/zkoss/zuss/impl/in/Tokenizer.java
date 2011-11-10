@@ -142,7 +142,7 @@ import org.zkoss.zuss.metainfo.Operator;
 				final StringBuffer ahead = new StringBuffer();
 				for (;;) {
 					cc = _in.next();
-					if (cc == ',' || cc == '{') { //selector
+					if (cc == '{') { //selector (, is not a good separator)
 						sb.append(':'); //colon is part of selector
 
 						_in.putback(cc); //reverse order

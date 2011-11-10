@@ -66,6 +66,14 @@ public class Operators {
 	public static Object multiply(Object val0, Object val1) {
 		val0 = guess(val0);
 		val1 = guess(val1);
+		if (val0 instanceof Color)
+			return ((Color)val0).multiply(val1);
+		if (val1 instanceof Color)
+			return ((Color)val1).multiply(val0);
+		if (val0 instanceof Size)
+			return ((Size)val0).multiply(val1);
+		if (val1 instanceof Size)
+			return ((Size)val1).multiply(val0);
 		if (val0 instanceof Number && val1 instanceof Number) {
 			if (val0 instanceof Double || val1 instanceof Double)
 				return ((Number)val0).doubleValue() * ((Number)val1).doubleValue();
@@ -77,6 +85,10 @@ public class Operators {
 	public static Object divide(Object val0, Object val1) {
 		val0 = guess(val0);
 		val1 = guess(val1);
+		if (val0 instanceof Color)
+			return ((Color)val0).divide(val1);
+		if (val0 instanceof Size)
+			return ((Size)val0).divide(val1);
 		if (val0 instanceof Number && val1 instanceof Number) {
 			if (val0 instanceof Double || val1 instanceof Double)
 				return ((Number)val0).doubleValue() / ((Number)val1).doubleValue();
@@ -111,6 +123,7 @@ public class Operators {
 				final char cc = s.charAt(0);
 				if (cc == '#')
 					return new Color(s);
+
 				if (cc >= '0' && cc <= '9') {
 					final boolean percent = s.charAt(s.length() - 1) == '%';
 					if (percent) {
@@ -129,6 +142,10 @@ public class Operators {
 						}
 					return new Size(s);
 				}
+
+				Color c = Color.getStandardColor(s);
+				if (c != null)
+					return c;
 			}
 		}
 		return val;
