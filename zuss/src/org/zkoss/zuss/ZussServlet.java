@@ -28,6 +28,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.zkoss.zuss.util.RequestResolver;
 import org.zkoss.zuss.metainfo.ZussDefinition;
 
 /**
@@ -93,7 +94,7 @@ public class ZussServlet extends HttpServlet {
 	throws ServletException, IOException {
 		final String path = getPath(request);
 		try {
-			byte[] css = translate(path);
+			byte[] css = translate(request, path);
 			if (_compress && css.length > 200 && !isIncluded(request))
 				css = gzip(request, response, css);
 
@@ -113,7 +114,7 @@ public class ZussServlet extends HttpServlet {
 	 * @param path the path of the ZUSS file, which is decided by {@link #getPath}.
 	 * @return the CSS content in a byte array (it is not compressed).
 	 */
-	protected byte[] translate(String path) throws IOException {
+	protected byte[] translate(HttpServletRequest request, String path) throws IOException {
 		if (_serverCache) {
 			final byte[] css = _cssmap.get(path);
 			if (css != null)
@@ -126,7 +127,7 @@ public class ZussServlet extends HttpServlet {
 				j > 0 ? path.substring(0, j): "/", _encoding));
 
 		final StringWriter out = new StringWriter();
-		Zuss.translate(def, out, getResolver());
+		Zuss.translate(def, out, getResolver(request));
 		final byte[] css = out.toString().getBytes(_encoding);
 
 		if (_serverCache)
@@ -134,10 +135,10 @@ public class ZussServlet extends HttpServlet {
 		return css;
 	}
 	/** Returns a resolver used to provide the default variables and functions.
-	 * <p>Default: null (no  default variables and functions).
+	 * <p>Default: an instance of {@link RequestResolver}.
 	 */
-	protected Resolver getResolver() {
-		return null;
+	protected Resolver getResolver(HttpServletRequest request) {
+		return new RequestResolver(request);
 	}
 	/** Returns the input stream of the given path.
 	 * <p>Default: invoke getServletContext().getResourceAsStream() to load the ZUSS file.

@@ -12,6 +12,8 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss;
 
+import java.lang.reflect.Method;
+
 /**
  * Custom variable and function resolver.
  * @author tomyeh
@@ -22,5 +24,5 @@ public interface Resolver {
 	public Object getVariable(String name);
 	/** Returns the method of the given name, or null if not available.
 	 */
-	public java.lang.reflect.Method getMethod(String name);
+	public Method getMethod(String name);
 }

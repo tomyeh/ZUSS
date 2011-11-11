@@ -46,6 +46,7 @@ public class Translator {
 	private final ZussDefinition _zuss;
 	private final Writer _out;
 	private final Resolver _resolver;
+	private final Resolver _builtin = new BuiltinResolver();
 
 	public Translator(ZussDefinition zuss, Writer out, Resolver resolver) {
 		_zuss = zuss;
@@ -212,9 +213,7 @@ public class Translator {
 				final NodeInfo fn = scope.getFunction(fv.getName());
 				final int lineno = fv.getLine();
 				final Object[] args = getArguments(values, fv.getArgumentNumber(), lineno);
-				if (fn == EVAL_FUNC) {
-					values.add(args.length == 0 ? null: args[0]);
-				} else if (fn instanceof FunctionDefinition) {
+				if (fn instanceof FunctionDefinition) {
 					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
 				} else if (fn instanceof MixinDefinition) {
 					throw new ZussException("not allowed, "+fn, lineno);
@@ -229,24 +228,32 @@ public class Translator {
 	}
 	/** Invokes a function. */
 	public Object invoke(String name, Object[] args, int lineno) {
+		final Method mtd = getMethod(name);
+		if (mtd == null)
+			throw new ZussException("Function not found: "+name, lineno);
+
+		int j = mtd.getParameterTypes().length;
+		if (args.length != j) { //if not enough, all others assume null
+			final Object[] as = args;
+			args = new Object[j];
+			if (j > as.length)
+				j = as.length;
+			while (--j >= 0)
+				args[j] = as[j];
+		}
+		try {
+			return mtd.invoke(null, args);
+		} catch (Exception ex) {
+			throw new ZussException("Unable to invoke "+mtd, lineno, ex);
+		}
+	}
+	private Method getMethod(String name) {
 		if (_resolver != null) {
 			final Method mtd = _resolver.getMethod(name);
-			if (mtd != null) {
-				int j = mtd.getParameterTypes().length;
-				if (args.length < j) { //if not enough, all others assume null
-					final Object[] as = args;
-					args = new Object[j];
-					for (j = as.length; --j >= 0;)
-						args[j] = as[j];
-				}
-				try {
-					return mtd.invoke(args);
-				} catch (Exception ex) {
-					throw new ZussException("Unable to invoke "+mtd, lineno, ex);
-				}
-			}
+			if (mtd != null)
+				return mtd;
 		}
-		throw new ZussException("Function not found: "+name, lineno);
+		return _builtin.getMethod(name);
 	}
 	private Object eval(Scope scope, VariableDefinition vdef) {
 		return eval(scope, vdef.getExpression());
@@ -369,7 +376,8 @@ public class Translator {
 				if (o != null || scope._vars.containsKey(name))
 					return o;
 			}
-			return _resolver != null ? _resolver.getVariable(name): null;
+			return _resolver != null ?
+				_resolver.getVariable(name): _builtin.getVariable(name);
 		}
 		/** Returns {@link FunctionDefinition} or {@link MixinDefinition}
 		 * of the given name, or null if not exists.
@@ -380,8 +388,6 @@ public class Translator {
 				if (node != null)
 					return node;
 			}
-			if ("eval".equals(name))
-				return EVAL_FUNC; //built-in function
 			return null;
 		}
 	}
@@ -393,8 +399,4 @@ public class Translator {
 				//LocalScope's parent can not be another LocalScope
 		}
 	}
-
-	//builtin functions//
-	private final static FunctionDefinition EVAL_FUNC =
-		new FunctionDefinition(null, "eval", new ArgumentDefinition[0], (Expression)null, 0);
 }

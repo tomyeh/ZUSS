@@ -183,12 +183,10 @@ import org.zkoss.zuss.metainfo.Operator;
 				cc = _in.next();
 				if (cc == EOF)
 					break;
-				sb.append(cc);
-				continue;
 			}
 			if (quot != EOF) {
 				sb.append(cc);
-				continue;
+				continue; //no special meaning
 			}
 
 			if (cc == ';' || cc == '}' || cc == '@') {
