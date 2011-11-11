@@ -22,7 +22,7 @@ import java.io.IOException;
 import org.zkoss.zuss.Locator;
 import org.zkoss.zuss.ZussException;
 import org.zkoss.zuss.metainfo.NodeInfo;
-import org.zkoss.zuss.metainfo.SheetDefinition;
+import org.zkoss.zuss.metainfo.ZussDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
@@ -56,7 +56,7 @@ public class Parser {
 	/** Parses the ZUSS style sheet.
 	 * <p>Notice that this method can be called only once.
 	 */
-	public SheetDefinition parse() throws IOException {
+	public ZussDefinition parse() throws IOException {
 		try {
 			Context ctx = new Context();
 			parse(ctx);
@@ -82,7 +82,7 @@ public class Parser {
 			&& ((Symbol)token).getValue() == '}') {
 				return; //done (closed)
 			} else if (token instanceof Other) {
-				if (ctx.state.parent instanceof SheetDefinition)
+				if (ctx.state.parent instanceof ZussDefinition)
 					throw new ZussException("{ expected; not "+token, token.getLine());
 				parseStyle(ctx, (Other)token);
 			} else {
@@ -418,7 +418,7 @@ public class Parser {
 	}
 
 	private class Context {
-		private final SheetDefinition sheet = new SheetDefinition();
+		private final ZussDefinition sheet = new ZussDefinition();
 		private final List<State> _states = new ArrayList<State>();
 		private State state = new State(sheet, false);
 

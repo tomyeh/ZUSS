@@ -1,11 +1,16 @@
 /*test of mixin*/
 @border_radious(@radius: 4px) {
+	@foo: 123;
 	border-radius: @radius;
 	-moz-border-radius: @radius;
 	-webkit-border-radius: @radius;
 	div {
 		border: @radius solid blue;
+		@another();
 	}
+}
+@another() {
+	border: @foo; /*@foo shall be null*/
 }
 @thin: 3px;
 
@@ -14,4 +19,7 @@ div.rounded {
 }
 button.rounded {
 	@border_radious(@thin);
+	color: @eval(#123 - #0ff);
+	width: calc(2*1.5px + 1 + 1em);
+	width: calc(@eval(2*1.5px + 1) + 1em);
 }

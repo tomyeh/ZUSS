@@ -21,7 +21,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.io.IOException;
 
-import org.zkoss.zuss.metainfo.SheetDefinition;
+import org.zkoss.zuss.metainfo.ZussDefinition;
 import org.zkoss.zuss.impl.in.Parser;
 import org.zkoss.zuss.impl.out.Translator;
 
@@ -36,7 +36,7 @@ public class Zuss {
 	 * @param charset the encoding used in the input stream, such as "UTF-8".
 	 * If null, the system default is used.
 	 */
-	public static SheetDefinition parse(File file, String charset)
+	public static ZussDefinition parse(File file, String charset)
 	throws IOException {
 		return parse(new java.io.FileInputStream(file),
 			charset, new FileLocator(file.getParentFile(), charset));
@@ -48,7 +48,7 @@ public class Zuss {
 	 * @param loc the locator used to locate the resource included by @include.
 	 * It can't be null if @include is used.
 	 */
-	public static SheetDefinition parse(InputStream in, String charset, Locator loc)
+	public static ZussDefinition parse(InputStream in, String charset, Locator loc)
 	throws IOException {
 		return parse(
 			charset != null ? new InputStreamReader(in, charset):
@@ -59,7 +59,7 @@ public class Zuss {
 	 * @param loc the locator used to locate the resource included by @include.
 	 * It can't be null if @include is used.
 	 */
-	public static SheetDefinition parse(Reader in, Locator loc)
+	public static ZussDefinition parse(Reader in, Locator loc)
 	throws IOException {
 		return new Parser(in, loc).parse();
 	}
@@ -72,7 +72,7 @@ public class Zuss {
 	 * If null, the system default is used.
 	 * @param resolver the custom variable and function resolver. Ignored if null.
 	 */
-	public static void translate(SheetDefinition def, File file, String charset,
+	public static void translate(ZussDefinition def, File file, String charset,
 	Resolver resolver) throws IOException {
 		translate(def,
 			new java.io.BufferedOutputStream(new java.io.FileOutputStream(file)),
@@ -85,7 +85,7 @@ public class Zuss {
 	 * If null, the system default is used.
 	 * @param resolver the custom variable and function resolver. Ignored if null.
 	 */
-	public static void translate(SheetDefinition def, OutputStream out,
+	public static void translate(ZussDefinition def, OutputStream out,
 	String charset, Resolver resolver) throws IOException {
 		translate(def,
 			charset != null ? new OutputStreamWriter(out, charset):
@@ -96,7 +96,7 @@ public class Zuss {
 	 * @param out the writer to store the generated CSS content.
 	 * @param resolver the custom variable and function resolver. Ignored if null.
 	 */
-	public static void translate(SheetDefinition def, Writer out, Resolver resolver)
+	public static void translate(ZussDefinition def, Writer out, Resolver resolver)
 	throws IOException {
 		new Translator(def, out, resolver).translate();
 	}
@@ -143,7 +143,7 @@ public class Zuss {
 			}
 		}
 
-		final SheetDefinition def =
+		final ZussDefinition def =
 			in != null ? parse(in, charset):
 				parse(System.in, charset, new FileLocator(null, charset));
 

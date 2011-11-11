@@ -32,6 +32,7 @@ public class FileLocator implements Locator {
 		_dir = dir != null ? dir: new File("");
 		_charset = charset;
 	}
+	@Override
 	public Reader getResource(String name)
 	throws IOException {
 		//TODO

@@ -125,20 +125,15 @@ if [ "$target" == "official" ] || [ "$target" == "daily" ] ; then
 
 	#Prepare the binary release
 	mkdir -p /tmp/zuss/$binnm/dist/lib
-	#mkdir -p /tmp/zuss/$binnm/dist/WEB-INF/tld/
-	#mkdir -p /tmp/zuss/$binnm/dist/xsd
 	mkdir -p /tmp/zuss/$binnm/doc
 
 	cd $maindir
 
 	#mv -f /tmp/zuss/*-sources.jar /tmp/zuss/$binnm/dist/src
-	cp dist/lib/zcommon.jar dist/lib/zcommons-el.jar dist/lib/zweb.jar /tmp/zuss/$binnm/dist/lib/
 	cp dist/lib/zuss.jar /tmp/zuss/$binnm/dist/lib/
 	chmod 644 /tmp/zuss/$binnm/dist/lib/*.jar
 	#chmod 644 /tmp/zuss/$binnm/dist/lib/*/*.jar
 
-	#cp -rp zuss/src/archive/web/WEB-INF/tld/web /tmp/zuss/$binnm/dist/WEB-INF/tld
-	#cp zuss/src/archive/metainfo/xml/*.xsd /tmp/zuss/$binnm/dist/xsd
 	cp doc/COPYING doc/release-note /tmp/zuss/$binnm/doc
 
 	#chmod 644 /tmp/zuss/$binnm/dist/xsd/*.xsd
@@ -195,10 +190,10 @@ if [ "$target" == "official" ] || [ "$target" == "daily" ] ; then
 	#Ouput ${binnm}
 	cp $maindir/doc/COPYING /tmp/zuss/$binnm/doc
 
-	if [ "$target" == "official" ] ; then
-		echo Output ${binnm}.tar.gz
-		tar zcf ${binnm}.tar.gz $binnm
-	fi
+#	if [ "$target" == "official" ] ; then
+#		echo Output ${binnm}.tar.gz
+#		tar zcf ${binnm}.tar.gz $binnm
+#	fi
 
 	echo Output ${binnm}.zip
 	zip -qr9 ${binnm}.zip $binnm

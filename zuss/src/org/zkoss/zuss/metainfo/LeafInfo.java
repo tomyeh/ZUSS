@@ -34,7 +34,8 @@ import org.zkoss.zuss.ZussException;
 	}
 	/*package*/ LeafInfo(NodeInfo parent, int lineno) {
 		this(lineno);
-		parent.appendChild(this);
+		if (parent != null)
+			parent.appendChild(this);
 	}
 
 	@Override

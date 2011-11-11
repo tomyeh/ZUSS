@@ -1,4 +1,4 @@
-/* SheetDefinition.java
+/* ZussDefinition.java
 
 	Purpose:
 		
@@ -17,8 +17,8 @@ package org.zkoss.zuss.metainfo;
  * It is the root element of the metainfo tree of a ZUSS file.
  * @author tomyeh
  */
-public class SheetDefinition extends BranchInfo {
-	public SheetDefinition() {
+public class ZussDefinition extends BranchInfo {
+	public ZussDefinition() {
 		super(1);
 	}
 

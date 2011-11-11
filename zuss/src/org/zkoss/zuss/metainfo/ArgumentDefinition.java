@@ -13,7 +13,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 package org.zkoss.zuss.metainfo;
 
 /**
- * Represents the defintion of arguments of {@link Mixin} and {@link FunctionDefinition}.
+ * Represents the defintion of arguments of {@link MixinDefinition} and {@link FunctionDefinition}.
  * @author tomyeh
  */
 public class ArgumentDefinition extends LeafInfo {

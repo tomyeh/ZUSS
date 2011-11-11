@@ -24,7 +24,7 @@ import org.zkoss.zuss.Resolver;
 import org.zkoss.zuss.ZussException;
 import org.zkoss.zuss.util.Classes;
 import org.zkoss.zuss.metainfo.NodeInfo;
-import org.zkoss.zuss.metainfo.SheetDefinition;
+import org.zkoss.zuss.metainfo.ZussDefinition;
 import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
@@ -43,12 +43,12 @@ import static org.zkoss.zuss.metainfo.Operator.Type.*;
  * @author tomyeh
  */
 public class Translator {
-	private final SheetDefinition _sheet;
+	private final ZussDefinition _zuss;
 	private final Writer _out;
 	private final Resolver _resolver;
 
-	public Translator(SheetDefinition sheet, Writer out, Resolver resolver) {
-		_sheet = sheet;
+	public Translator(ZussDefinition zuss, Writer out, Resolver resolver) {
+		_zuss = zuss;
 		_out = out;
 		_resolver = resolver;
 	}
@@ -58,9 +58,11 @@ public class Translator {
 	public void translate() throws IOException {
 		try {
 			final Scope scope = new Scope(null);
-			for (NodeInfo node: _sheet.getChildren()) {
+			for (NodeInfo node: _zuss.getChildren()) {
 				if (node instanceof RuleDefinition) {
-					outRule(new Scope(scope), null, (RuleDefinition)node);
+					outRule(scope, null, (RuleDefinition)node);
+						//Like JavaScript, a rule doesn't instantiate a new scope.
+						//Otherwise, it is tough to implement the local scope
 				} else {
 					outOther(scope, node);
 				}
@@ -105,7 +107,7 @@ public class Translator {
 				empty = true;
 				write(end);
 			}
-			outRule(new Scope(scope), thisSels, (RuleDefinition)node);
+			outRule(scope, thisSels, (RuleDefinition)node);
 		} else if (node instanceof StyleDefinition) {
 			if (empty) {
 				empty = false;
@@ -129,15 +131,13 @@ public class Translator {
 				}
 
 				List<Object> values = evalExpression(scope, exprList.subList(0, j));
-				final Scope subsc = new Scope(scope);
-				subsc.pushLocalVariables(getArgumentMap(
+				Map<String, Object> argmap = getArgumentMap(
 					((MixinDefinition)fn).getArgumentDefinitions(),
-					getArguments(values, fv.getArgumentNumber(), fv.getLine())));
-
-				for (NodeInfo subnd: fn.getChildren())
+					getArguments(values, fv.getArgumentNumber(), fv.getLine()));
+				final Scope subsc = new LocalScope(scope, argmap); //a local scope
+				for (NodeInfo subnd: fn.getChildren()) {
 					empty = outRuleInner(subsc, thisSels, subnd, head, end, empty);
-
-				subsc.popLocalVariables(); //clean up
+				}
 			} else {
 			//handle normal expression
 				final Object o = eval(scope, expr);
@@ -174,12 +174,12 @@ public class Translator {
 	private void outOther(Scope scope, NodeInfo node) throws IOException {
 		if (node instanceof VariableDefinition) {
 			final VariableDefinition vdef = (VariableDefinition)node;
-			scope.putVariable(vdef.getName(), eval(scope, vdef));
+			scope.setVariable(vdef.getName(), eval(scope, vdef));
 				//spec: evaluate when it is defined (not when it is used)
 		} else if (node instanceof FunctionDefinition) {
-			scope.putFunction((FunctionDefinition)node);
+			scope.setFunction((FunctionDefinition)node);
 		} else if (node instanceof MixinDefinition) {
-			scope.putFunction((MixinDefinition)node);
+			scope.setFunction((MixinDefinition)node);
 		} else {
 			throw new ZussException("unknown "+node, node.getLine());
 		}
@@ -212,7 +212,9 @@ public class Translator {
 				final NodeInfo fn = scope.getFunction(fv.getName());
 				final int lineno = fv.getLine();
 				final Object[] args = getArguments(values, fv.getArgumentNumber(), lineno);
-				if (fn instanceof FunctionDefinition) {
+				if (fn == EVAL_FUNC) {
+					values.add(args.length == 0 ? null: args[0]);
+				} else if (fn instanceof FunctionDefinition) {
 					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
 				} else if (fn instanceof MixinDefinition) {
 					throw new ZussException("not allowed, "+fn, lineno);
@@ -255,9 +257,8 @@ public class Translator {
 		final Object value;
 		final Expression expr = fdef.getExpression();
 		if (expr != null) {
-			scope.pushLocalVariables(getArgumentMap(adefs, args));
-			value = eval(scope, expr);
-			scope.popLocalVariables(); //clean up
+			value = eval(new LocalScope(scope, getArgumentMap(adefs, args)), expr);
+				//a local scope for function invocation
 		} else {
 			final Method m = fdef.getMethod();
 			final Class<?>[] argTypes = m.getParameterTypes();
@@ -318,28 +319,24 @@ public class Translator {
 		/** The value is an instanceof {@link FunctionDefinition} or {@link MuxinDefinition}.
 		 */
 		private final Map<String, NodeInfo> _funs = new HashMap<String, NodeInfo>();
-		private final List<Map<String, Object>> _locals = new LinkedList<Map<String, Object>>();
 
 		private Scope(Scope parent) {
 			_parent = parent;
+		}
+		/**
+		 * @param vars the initial variables
+		 */
+		private Scope(Scope parent, Map<String, Object> vars) {
+			_parent = parent;
+			_vars.putAll(vars);
 		}
 
 		public Scope getParent() {
 			return _parent;
 		}
-		/** Stores a map of local variables. */
-		public void pushLocalVariables(Map<String, Object> vars) {
-			_locals.add(0, vars);
-		}
-		/** Removes the map of local variables pushed by the last invocation
-		 * to {@link #pushLocalVariables}.
-		 */
-		public void popLocalVariables() {
-			_locals.remove(0);
-		}
 
 		/** Stores a variable. */
-		public void putVariable(String name, Object value) {
+		public void setVariable(String name, Object value) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				if (scope._vars.containsKey(name)) {
 					scope._vars.put(name, value); //replace
@@ -349,13 +346,13 @@ public class Translator {
 			_vars.put(name, value);
 		}
 		/** Stores a function definition. */
-		public void putFunction(FunctionDefinition fdef) {
-			putFunction(fdef.getName(), fdef);
+		public void setFunction(FunctionDefinition fdef) {
+			setFunction(fdef.getName(), fdef);
 		}
-		public void putFunction(MixinDefinition mdef) {
-			putFunction(mdef.getName(), mdef);
+		public void setFunction(MixinDefinition mdef) {
+			setFunction(mdef.getName(), mdef);
 		}
-		private void putFunction(String name, NodeInfo node) {
+		private void setFunction(String name, NodeInfo node) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				if (scope._funs.containsKey(name)) {
 					scope._funs.put(name, node); //replace
@@ -368,18 +365,8 @@ public class Translator {
 		/** Returns the variable value with the given name. */
 		public Object getVariable(String name) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
-				if (!scope._locals.isEmpty()) {
-					//Notice: we check only the topmost since the 2nd function
-					//shall not see the arguments of the 1st function 
-					Map<String, Object> vars = scope._locals.get(0);
-					final Object o = vars.get(name);
-					if (o != null || vars.containsKey(name))
-						return o;
-				}
-
-				Map<String, Object> vars = scope._vars;
-				final Object o = vars.get(name);
-				if (o != null || vars.containsKey(name))
+				final Object o = scope._vars.get(name);
+				if (o != null || scope._vars.containsKey(name))
 					return o;
 			}
 			return _resolver != null ? _resolver.getVariable(name): null;
@@ -393,7 +380,21 @@ public class Translator {
 				if (node != null)
 					return node;
 			}
+			if ("eval".equals(name))
+				return EVAL_FUNC; //built-in function
 			return null;
 		}
 	}
+	/** Represents a local scope used by the evaluation of mixin and function.
+	 */
+	private class LocalScope extends Scope {
+		private LocalScope(Scope parent, Map<String, Object> vars) {
+			super(parent instanceof LocalScope ? parent._parent: parent, vars);
+				//LocalScope's parent can not be another LocalScope
+		}
+	}
+
+	//builtin functions//
+	private final static FunctionDefinition EVAL_FUNC =
+		new FunctionDefinition(null, "eval", new ArgumentDefinition[0], (Expression)null, 0);
 }
