@@ -17,3 +17,6 @@ div.type2:hilite {color: @light-blue; background: @dark-orange}
 @size: 10pt;
 div.box {border: @darken(@size) solid blue;}
 div.box2 {border: @darken(@size, .3) solid blue;}
+
+@str: 'a long \'strong\' with "';
+div {foo: @str}

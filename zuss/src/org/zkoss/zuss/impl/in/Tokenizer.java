@@ -89,6 +89,9 @@ import org.zkoss.zuss.metainfo.Operator;
 			return new Symbol(cc, getLine());
 
 		if (expressioning) {
+			if (cc == '\'' || cc == '"')
+				return asString(cc);
+
 			int j;
 			if ((j = OPS1.indexOf(cc)) >= 0)
 				return new Op(OPTYPES1[j], getLine());
@@ -149,22 +152,52 @@ import org.zkoss.zuss.metainfo.Operator;
 	 */
 	private Token asOther(char cc, boolean expressioning) throws IOException {
 		final StringBuffer sb = new StringBuffer().append(cc);
-		for (;;) {
-			cc = _in.next();
-			if (expressioning) {
+		final int lineno = getLine();
+		if (expressioning)
+			for (;;) {
+				cc = _in.next();
 				if (cc == EOF || WHITESPACES.indexOf(cc) >= 0
 				|| SYMBOLS.indexOf(cc) >= 0
 				|| OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0) {
 					_in.putback(cc);
-					return new Other(sb.toString().trim(), getLine());
+					return new Other(sb.toString().trim(), lineno);
 				}
-			} else if (cc == EOF || cc == ';' || cc == '}' || cc == '@') {
+				sb.append(cc);
+			}
+
+		//non-expression
+		char quot = EOF;
+		int strlineno = 0;
+		for (;;) {
+			cc = _in.next();
+			if (cc == EOF)
+				break;
+
+			if (cc == quot) {
+				quot = EOF;
+			} else if (cc == '\'' || cc == '"') {
+				quot = cc;
+				strlineno = getLine();
+			} else if (quot != EOF && cc == '\\') {
+				sb.append(cc); //keep the original form since it is CSS selector (handled by browser)
+				cc = _in.next();
+				if (cc == EOF)
+					break;
+				sb.append(cc);
+				continue;
+			}
+			if (quot != EOF) {
+				sb.append(cc);
+				continue;
+			}
+
+			if (cc == ';' || cc == '}' || cc == '@') {
 				_in.putback(cc);
-				return new Other(sb.toString().trim(), getLine());
+				return new Other(sb.toString().trim(), lineno);
 
 			} else if (cc == ',' || cc == '{') {
 				_in.putback(cc);
-				return new Selector(sb.toString().trim(), getLine());
+				return new Selector(sb.toString().trim(), lineno);
 
 			} else if (cc == ':' ) {
 				//a colon might appear in a selector or a separator for name/value
@@ -194,6 +227,10 @@ import org.zkoss.zuss.metainfo.Operator;
 			}
 			sb.append(cc);
 		}
+
+		if (quot != EOF)
+			throw new ZussException("unclosed string literal", strlineno);
+		return new Other(sb.toString().trim(), lineno);
 	}
 	private static boolean isValidId(char cc) {
 		return (cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')
@@ -229,6 +266,21 @@ import org.zkoss.zuss.metainfo.Operator;
 			return new Keyword(Keyword.Value.MEDIA, getLine());
 		return new Id(nm, getLine());
 	}
+	private Token asString(char quot) throws IOException {
+		final StringBuffer sb = new StringBuffer();
+		final int lineno = getLine();
+		for (char cc; (cc = _in.next()) != EOF;) {
+			if (cc == quot)
+				return new Other(sb.toString(), lineno);
+			if (cc == '\\') {
+				cc = _in.next(); //skip next
+				if (cc == EOF)
+					break;
+			}
+			sb.append(cc);
+		}
+		throw new ZussException("unclosed string literal", lineno);
+	}
 
 	private static class Input {
 		private final Reader _in;
@@ -238,7 +290,7 @@ import org.zkoss.zuss.metainfo.Operator;
 
 		private Input(Reader in) {
 			_in = in;
-		}		
+		}
 
 		/** Returns the line number. */
 		private int getLine() {
