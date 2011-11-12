@@ -12,6 +12,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Calendar;
@@ -60,7 +61,7 @@ import org.zkoss.zuss.metainfo.ZussDefinition;
 public class ZussServlet extends HttpServlet {
 	private static long LAST_MODIFIED = new java.util.Date().getTime();
 
-	private final Map<String, byte[]> _cssmap = new HashMap<String, byte[]>();
+	private Map<String, byte[]> _cssmap = Collections.emptyMap();
 	private String _encoding;
 	private int _clientCacheHours;
 	private boolean _serverCache, _compress;
@@ -130,8 +131,13 @@ public class ZussServlet extends HttpServlet {
 		Zuss.translate(def, out, getResolver(request));
 		final byte[] css = out.toString().getBytes(_encoding);
 
-		if (_serverCache)
-			_cssmap.put(path, css);
+		if (_serverCache) {
+			synchronized (this) {
+				Map<String, byte[]> map = new HashMap<String, byte[]>(_cssmap);
+				map.put(path, css);
+				_cssmap = map;
+			}
+		}
 		return css;
 	}
 	/** Returns a resolver used to provide the default variables and functions.
