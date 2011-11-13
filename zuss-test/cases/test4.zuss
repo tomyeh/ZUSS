@@ -1,0 +1,13 @@
+@border_radious(@radius: 4px, @color: orange) {
+  border-radius: @radius;
+  div.hilite {
+    color: @color;
+  }
+}
+ 
+div.rounded {
+  @border_radious();
+}
+button.rounded {
+  @border_radious(3px, blue);
+}

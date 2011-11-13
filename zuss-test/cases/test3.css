@@ -1,0 +1,23 @@
+div.rounded{
+	border-radius: 4px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+}
+div.rounded div{
+	border: 4px solid blue;
+	border:;
+}
+button.rounded{
+	border-radius: 3px;
+	-moz-border-radius: 3px;
+	-webkit-border-radius: 3px;
+}
+button.rounded div{
+	border: 3px solid blue;
+	border:;
+}
+button.rounded{
+	color: #110000;
+	width: calc(2*1.5px + 1 + 1em);
+	width: calc( 4px + 1em);
+}

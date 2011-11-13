@@ -8,8 +8,17 @@ cp=${cp%/*}
 
 if [ $# = 0 ] ; then
 	cd $cp
-	for f in cases/*.zuss; do
-		./zuss $f
+	for f in cases/test*.zuss; do
+		fcss=${f#*/}
+		echo check $fcss
+		fcss=${fcss%.zuss}.css
+		./zuss $f > /tmp/$fcss
+		diff cases/$fcss /tmp/$fcss > /dev/null
+		if [ $? = 0 ] ; then
+			echo success
+		else
+			echo Something different: cases/$fcss /tmp/$fcss 
+		fi
 	done
 else
 	cd $cp

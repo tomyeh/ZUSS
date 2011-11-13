@@ -35,7 +35,7 @@ public class ZussException extends RuntimeException {
 	public ZussException() {
 	}
 	private static String message(String msg, String filename, int lineno) {
-		final StringBuffer sb = new StringBuffer();
+		final StringBuffer sb = new StringBuffer().append("[zuss] ");
 		if (filename != null && filename.length() > 0)
 			sb.append(filename).append(':');
 		return sb.append("Line ").append(lineno).append(": ").append(msg).toString();

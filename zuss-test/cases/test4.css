@@ -1,0 +1,12 @@
+div.rounded{
+	border-radius: 4px;
+}
+div.rounded div.hilite{
+	color: orange;
+}
+button.rounded{
+	border-radius: 3px;
+}
+button.rounded div.hilite{
+	color: blue;
+}

@@ -1,0 +1,22 @@
+span.native{
+	background: 234;
+}
+div{
+	color: #565656;
+}
+div.type1:hilite{
+	color: #5B83AD;
+}
+div.type2:hilite{
+	color: #6c94be;
+	background: darkorange;
+}
+div.box{
+	border: 9.5pt solid blue;
+}
+div.box2{
+	border: 10pt solid blue;
+}
+div{
+	foo: a long 'strong' with ";
+}

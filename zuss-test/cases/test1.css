@@ -1,0 +1,39 @@
+div #simple{
+	border: 1px solid blue;
+	margin: 2px 3px;
+}
+a:hover .nest span,.another div .nest span{
+	overflow: auto;
+	display: inline-block;
+	background: white  !important;
+}
+a:hover.float,.another div.float{
+	display: float;
+}
+a:hover.float h1,.another div.float h1{
+	color: blue;
+}
+a:hover.float h1 h2,.another div.float h1 h2{
+	color: #999;
+}
+a:hover,.another div{
+	backgournd-image: url(/dir/whatever);
+	border: 1px solid
+	blue;
+}
+#second div{
+	position: absolute;
+}
+#second div div.float{
+	display: float;
+	background: url(/dir/dir/foo);
+}
+section{
+	float: left;
+	margin: 1em;
+	border: solid 1px;
+	width: calc(100%/3 - 2*1em - 2*1px);
+}
+p{
+	margin: calc(1rem - 2px) calc(1rem - 1px);
+}

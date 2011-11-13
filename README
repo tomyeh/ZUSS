@@ -11,6 +11,15 @@ Design Goals
 The first implementation is Java, and it depends nothing but JDK.
 It shall be straighforward to port to different languages.
 
+Documentation
+
+* http://books.zkoss.org/wiki/ZUSS_Reference
+
+Download
+
+* http://code.google.com/p/zuss/downloads/list
+
 Acknowledgement
+
 ZUSS is inspired by LESS and SASS. Unlike LESS and SASS, the processing of
 ZUSS file won't require the JavaScript or Ruby interpreter.
