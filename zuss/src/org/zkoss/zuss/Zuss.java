@@ -39,7 +39,8 @@ public class Zuss {
 	public static ZussDefinition parse(File file, String charset)
 	throws IOException {
 		return parse(new java.io.FileInputStream(file),
-			charset, new FileLocator(file.getParentFile(), charset));
+			charset, new FileLocator(file.getParentFile(), charset),
+			file.getPath());
 	}
 	/** Parses from the given input stream.
 	 * @param in the input stream to read ZUSS from
@@ -47,21 +48,25 @@ public class Zuss {
 	 * If null, the system default is used.
 	 * @param loc the locator used to locate the resource included by @include.
 	 * It can't be null if @include is used.
+	 * @param filename the ZUSS's filename. It is used only to display the
+	 * error message. Ignored if null.
 	 */
-	public static ZussDefinition parse(InputStream in, String charset, Locator loc)
-	throws IOException {
+	public static ZussDefinition parse(InputStream in, String charset,
+	Locator loc, String filename) throws IOException {
 		return parse(
 			charset != null ? new InputStreamReader(in, charset):
-				new InputStreamReader(in), loc);
+				new InputStreamReader(in), loc, filename);
 	}
 	/** Parses from the given reader.
 	 * @param in the reader to read ZUSS from
 	 * @param loc the locator used to locate the resource included by @include.
 	 * It can't be null if @include is used.
+	 * @param filename the ZUSS's filename. It is used only to display the
+	 * error message. Ignored if null.
 	 */
-	public static ZussDefinition parse(Reader in, Locator loc)
+	public static ZussDefinition parse(Reader in, Locator loc, String filename)
 	throws IOException {
-		return new Parser(in, loc).parse();
+		return new Parser(in, loc, filename).parse();
 	}
 
 	/** Translate ZUSS to CSS, and store to the gieven file based on the given ZUL style sheet.
@@ -145,7 +150,7 @@ public class Zuss {
 
 		final ZussDefinition def =
 			in != null ? parse(in, charset):
-				parse(System.in, charset, new FileLocator(null, charset));
+				parse(System.in, charset, new FileLocator(null, charset), null);
 
 		if (out != null) {
 			translate(def, out, charset, null);

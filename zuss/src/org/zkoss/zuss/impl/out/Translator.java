@@ -75,6 +75,17 @@ public class Translator {
 			}
 		}
 	}
+
+	private ZussException error(String msg, NodeInfo node) {
+		return new ZussException(msg, _zuss.getFilename(), node.getLine());
+	}
+	private ZussException error(String msg, int lineno) {
+		return new ZussException(msg, _zuss.getFilename(), lineno);
+	}
+	private ZussException error(String msg, int lineno, Throwable t) {
+		return new ZussException(msg, _zuss.getFilename(), lineno, t);
+	}
+
 	/** Generates the rule definitions.
 	 * @param outerSels the selectors of enclosing rules.
 	 * @param rdef the rule definition to generate
@@ -182,7 +193,7 @@ public class Translator {
 		} else if (node instanceof MixinDefinition) {
 			scope.setFunction((MixinDefinition)node);
 		} else {
-			throw new ZussException("unknown "+node, node.getLine());
+			throw error("unknown "+node, node);
 		}
 	}
 
@@ -193,12 +204,12 @@ public class Translator {
 			return eval(scope, (VariableValue)node);
 		else if (node instanceof Expression)
 			return eval(scope, (Expression)node);
-		throw new ZussException("unknown "+node, node.getLine());
+		throw error("unknown "+node, node);
 	}
 	private Object eval(Scope scope, Expression expr) {
 		final List<Object> values = evalExpression(scope, expr.getChildren());
 		if (values.size() != 1)
-			throw new ZussException("failed evaluate "+expr+": "+values, expr.getLine());
+			throw error("failed evaluate "+expr+": "+values, expr);
 		return values.get(0);
 	}
 	private List<Object> evalExpression(Scope scope, List<NodeInfo> exprList) {
@@ -216,7 +227,7 @@ public class Translator {
 				if (fn instanceof FunctionDefinition) {
 					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
 				} else if (fn instanceof MixinDefinition) {
-					throw new ZussException("not allowed, "+fn, lineno);
+					throw error("not allowed, "+fn, lineno);
 				} else {
 					values.add(invoke(fv.getName(), args, lineno));
 				}
@@ -230,7 +241,7 @@ public class Translator {
 	public Object invoke(String name, Object[] args, int lineno) {
 		final Method mtd = getMethod(name);
 		if (mtd == null)
-			throw new ZussException("Function not found: "+name, lineno);
+			throw error("Function not found: "+name, lineno);
 
 		int j = mtd.getParameterTypes().length;
 		if (args.length != j) { //if not enough, all others assume null
@@ -244,7 +255,7 @@ public class Translator {
 		try {
 			return mtd.invoke(null, args);
 		} catch (Exception ex) {
-			throw new ZussException("Unable to invoke "+mtd, lineno, ex);
+			throw error("Unable to invoke "+mtd, lineno, ex);
 		}
 	}
 	private Method getMethod(String name) {
@@ -278,7 +289,7 @@ public class Translator {
 			try {
 				value = m.invoke(null, args);
 			} catch (Throwable ex) {
-				throw new ZussException("failed to invoke "+m, lineno, ex);
+				throw error("failed to invoke "+m, lineno, ex);
 			}
 		}
 		return value;
@@ -298,7 +309,7 @@ public class Translator {
 	private Object[] getArguments(List<Object> values, int argc, int lineno) {
 		int sz = values.size();
 		if (sz < argc)
-			throw new ZussException("Not enough argument: "+sz, lineno);
+			throw error("Not enough argument: "+sz, lineno);
 		final Object[] args = new Object[argc];
 		while ( --argc >= 0)
 			args[argc] = values.remove(--sz);

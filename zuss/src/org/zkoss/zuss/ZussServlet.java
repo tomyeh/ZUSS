@@ -125,7 +125,7 @@ public class ZussServlet extends HttpServlet {
 		int j = path.lastIndexOf('/');
 		final ZussDefinition def = Zuss.parse(getInputStream(path), _encoding,
 			new ServletContextLocator(getServletContext(),
-				j > 0 ? path.substring(0, j): "/", _encoding));
+				j > 0 ? path.substring(0, j): "/", _encoding), path);
 
 		final StringWriter out = new StringWriter();
 		Zuss.translate(def, out, getResolver(request));

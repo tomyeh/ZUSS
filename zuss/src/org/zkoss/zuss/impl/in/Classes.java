@@ -25,26 +25,27 @@ import org.zkoss.zuss.ZussException;
 	/** Returns the method of the given name.
 	 * @param clsnm the class name and, optionally, a method name.
 	 */
-	public static Method getMethod(String clsnm, String mtdnm, int argc, int lineno) {
+	public static Method getMethod(String clsnm, String mtdnm, int argc,
+	String filename, int lineno) {
 		int j = clsnm.lastIndexOf('#');
 		if (j >= 0) {
 			mtdnm = clsnm.substring(j + 1);
 			if (mtdnm.length() == 0)
-				throw new ZussException("a method name required after #", lineno);
+				throw new ZussException("a method name required after #", filename, lineno);
 			clsnm = clsnm.substring(0, j);
 			if (clsnm.length() == 0)
-				throw new ZussException("a class name required before #", lineno);
+				throw new ZussException("a class name required before #", filename, lineno);
 		}
 
-		Class<?> cls = getClass(clsnm, lineno);
+		Class<?> cls = getClass(clsnm, filename, lineno);
 		Class<?>[] argTypes = new Class<?>[argc];
 		for (j = argTypes.length; --j >= 0;)
 			argTypes[j] = String.class;
 
 		try {
-			final Method m = getMethodInPublic(cls, mtdnm, argTypes, lineno);
+			final Method m = getMethodInPublic(cls, mtdnm, argTypes, filename, lineno);
 			if ((m.getModifiers() & Modifier.STATIC) == 0)
-				throw new ZussException("not a static method: "+m, lineno);
+				throw new ZussException("not a static method: "+m, filename, lineno);
 			return m;
 		} catch (NoSuchMethodException ex) { //ignore
 		}
@@ -55,14 +56,14 @@ import org.zkoss.zuss.ZussException;
 				argTypes = ms[j].getParameterTypes();
 				if (argTypes.length == argc)
 					try {
-						return getMethodInPublic(cls, mtdnm, argTypes, lineno);
+						return getMethodInPublic(cls, mtdnm, argTypes, filename, lineno);
 					} catch (NoSuchMethodException ex) { //ignore
 					}
 			}
-		throw new ZussException("method not found, "+mtdnm+", in "+cls, lineno);
+		throw new ZussException("method not found, "+mtdnm+", in "+cls, filename, lineno);
 	}
 	private static Method getMethodInPublic(
-	Class<?> cls, String mtdnm, Class<?>[] argTypes, int lineno)
+	Class<?> cls, String mtdnm, Class<?>[] argTypes, String filename, int lineno)
 	throws NoSuchMethodException {
 		final Method m = cls.getMethod(mtdnm, argTypes);
 		if (Modifier.isPublic(m.getDeclaringClass().getModifiers()))
@@ -71,20 +72,20 @@ import org.zkoss.zuss.ZussException;
 		final Class<?>[] clses = cls.getInterfaces();
 		for (int j = 0; j< clses.length; ++j)
 			try {
-				return getMethodInPublic(clses[j], mtdnm, argTypes, lineno);
+				return getMethodInPublic(clses[j], mtdnm, argTypes, filename, lineno);
 			} catch (NoSuchMethodException ex) { //ignore it
 			}
 
 		final Class<?> basecls = cls.getSuperclass();
 		if (basecls != null)
-			return getMethodInPublic(basecls, mtdnm, argTypes, lineno);
+			return getMethodInPublic(basecls, mtdnm, argTypes, filename, lineno);
 
-		throw new  ZussException("public method required: "+m, lineno);
+		throw new ZussException("public method required: "+m, filename, lineno);
 	}
 
 	/** Returns the class of the given name.
 	 */
-	public static Class<?> getClass(String clsnm, int lineno) {
+	public static Class<?> getClass(String clsnm, String filename, int lineno) {
 		ClassLoader cl = Thread.currentThread().getContextClassLoader();
 		if (cl != null)
 			try {
@@ -94,7 +95,7 @@ import org.zkoss.zuss.ZussException;
 		try {
 			return Parser.class.forName(clsnm);
 		} catch (ClassNotFoundException ex) {
-			throw new ZussException("class not found, "+clsnm, lineno);
+			throw new ZussException("class not found, "+clsnm, filename, lineno);
 		}
 	}
 }

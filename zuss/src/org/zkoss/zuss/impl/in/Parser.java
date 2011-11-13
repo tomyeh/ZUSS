@@ -48,9 +48,30 @@ public class Parser {
 	private final Tokenizer _in;
 	private final Locator _loc;
 
-	public Parser(Reader in, Locator loc) {
-		_in = new Tokenizer(in);
+	/** Parser.
+	 * @param loc the locator used to locate the resource included by @include.
+	 * It can't be null if @include is used.
+	 * @param filename the ZUSS's filename. It is used only to display the
+	 * error message. Ignored if null.
+	 */
+	public Parser(Reader in, Locator loc, String filename) {
+		_in = new Tokenizer(in, filename);
 		_loc = loc;
+	}
+
+	/** Returns the name of the file being parsed.
+	 */
+	public String getFilename() {
+		return _in.getFilename();
+	}
+	private ZussException error(String msg, Token token) {
+		return new ZussException(msg, getFilename(), getLine(token));
+	}
+	private ZussException error(String msg, int lineno) {
+		return new ZussException(msg, getFilename(), lineno);
+	}
+	private int getLine(Token token) {
+		return token != null ? token.getLine(): _in.getLine();
 	}
 
 	/** Parses the ZUSS style sheet.
@@ -83,10 +104,10 @@ public class Parser {
 				return; //done (closed)
 			} else if (token instanceof Other) {
 				if (ctx.state.parent instanceof ZussDefinition)
-					throw new ZussException("{ expected; not "+token, token.getLine());
+					throw error("{ expected; not "+token, token);
 				parseStyle(ctx, (Other)token);
 			} else {
-				throw new ZussException("unknown "+token, getLine(token));
+				throw error("unknown "+token, token);
 			}
 		}
 	}
@@ -133,7 +154,7 @@ public class Parser {
 						return; //done
 					}
 				}
-				throw new ZussException("expected ';', not "+t0, getLine(t0));
+				throw error("expected ';', not "+t0, t0);
 			}
 
 			//definition of function/mixin
@@ -146,13 +167,14 @@ public class Parser {
 					if (t1 instanceof Keyword && ((Keyword)t1).getValue() == IMPORT) {
 						t0 = next(ctx);
 						if (!(t0 instanceof Other))
-							throw new ZussException("a class name expected, not "+t0, getLine(t0));
+							throw error("a class name expected, not "+t0, t0);
 						t1 = next(ctx);
 						if (!(t1 instanceof Symbol) || ((Symbol)t1).getValue() != ';')
-							throw new ZussException("';' expected", getLine(t1));
+							throw error("';' expected", t1);
 
 						final Method mtd = Classes.getMethod(
-							((Other)t0).getValue(), id.getValue(), adefs.length, t0.getLine());
+							((Other)t0).getValue(), id.getValue(), adefs.length,
+							getFilename(), t0.getLine());
 						new FunctionDefinition(
 							ctx.state.parent, id.getValue(), adefs, mtd, id.getLine());
 						return;
@@ -175,7 +197,7 @@ public class Parser {
 				}
 			}
 		}
-		throw new ZussException("unexpected "+t0, getLine(t0));
+		throw error("unexpected "+t0, t0);
 	}
 
 	/** Parse a definition starts with selector. */
@@ -184,12 +206,12 @@ public class Parser {
 		char symbol;
 		if (!(t0 instanceof Symbol)
 		|| ((symbol = ((Symbol)t0).getValue()) != ',' && symbol != '{'))
-			throw new ZussException(", or { expected after a selector", getLine(t0));
+			throw error(", or { expected after a selector", t0);
 
 		if (symbol == ',') {
 			Token t1 = next(ctx);
 			if (!(t1 instanceof Selector))
-				throw new ZussException("a selector expected after ','", getLine(t1));
+				throw error("a selector expected after ','", t1);
 			rdef.getSelectors().add(((Selector)t1).getValue());
 			parseSelector(ctx, rdef);
 		} else { //{
@@ -202,7 +224,7 @@ public class Parser {
 	private void parseStyle(Context ctx, Other name) throws IOException {
 		Token t0 = next(ctx);
 		if (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ':')
-			throw new ZussException(": expected", (t0 != null ? t0: name).getLine());
+			throw error(": expected", t0 != null ? t0: name);
 
 		StyleDefinition sdef = new StyleDefinition(ctx.state.parent, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
@@ -216,7 +238,7 @@ public class Parser {
 					putback(token);
 					break; //done
 				}
-				throw new ZussException("unexpected '" + symbol + '\'', token.getLine());
+				throw error("unexpected '" + symbol + '\'', token);
 			} else if (token instanceof Id) {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
@@ -240,7 +262,7 @@ public class Parser {
 		final List<ArgumentDefinition> args = new ArrayList<ArgumentDefinition>();
 		for (; (token = next(ctx)) != null;) {
 			if (!(token instanceof Id))
-				throw new ZussException("Argument must be defined with a variable (@xxx)", getLine(token));
+				throw error("Argument must be defined with a variable (@xxx)", token);
 
 			final String name = ((Id)token).getValue();
 			String defValue = null;
@@ -249,7 +271,7 @@ public class Parser {
 				if (((Symbol)t0).getValue() == ':') {
 					t0 = next(ctx);
 					if (!(t0 instanceof Other))
-						throw new ZussException("unexpected "+t0, getLine(t0));
+						throw error("unexpected "+t0, t0);
 					defValue = ((Other)t0).getValue();
 					t0 = next(ctx);
 				}
@@ -265,13 +287,9 @@ public class Parser {
 					return args.toArray(new ArgumentDefinition[args.size()]); //done
 				}
 			}
-			throw new ZussException("unexpected "+t0, getLine(t0));
+			throw error("unexpected "+t0, t0);
 		}
-		throw new ZussException("')' expected", getLine(token));
-	}
-
-	private int getLine(Token token) {
-		return token != null ? token.getLine(): _in.getLine();
+		throw error("')' expected", token);
 	}
 
 	/**
@@ -299,9 +317,9 @@ public class Parser {
 					break;
 				}
 				if (cc != ',')
-					throw new ZussException("unexpected "+token, token.getLine());
+					throw error("unexpected "+token, token);
 				if (!opExpected)
-					throw new ZussException("unexpected ','", token.getLine());
+					throw error("unexpected ','", token);
 
 				while (!ops.isEmpty()) {
 					final Op xop = ops.get(0);
@@ -309,7 +327,7 @@ public class Parser {
 					if (xtype == FUNC || xtype == COMMA)
 						break;
 					if (xtype == LPAREN)
-						throw new ZussException("')' expected", xop.getLine());
+						throw error("')' expected", xop);
 					ops.remove(0);
 					new Operator(expr, xop.getValue(), xop.getLine());
 				}
@@ -328,7 +346,7 @@ public class Parser {
 					case ADD:
 						continue; //ignore
 					default:
-						throw new ZussException("an operand expected, not "+op, op.getLine());
+						throw error("an operand expected, not "+op, op);
 					}
 				} else if (op.getValue() == RPAREN) {
 					int argc = 1; //zero argument has been processed when Id is found
@@ -352,7 +370,7 @@ public class Parser {
 						break; //done
 					continue; //next token
 				} else if (op.getValue() == LPAREN)
-					throw new ZussException("unexpected '('", op.getLine());
+					throw error("unexpected '('", op);
 
 				//push an operator
 				while (!ops.isEmpty()) {
@@ -368,7 +386,7 @@ public class Parser {
 				opExpected = false;
 			} else {
 				if (opExpected)
-					throw new ZussException("an operator expected, not "+token, token.getLine());
+					throw error("an operator expected, not "+token, token);
 
 				if (token instanceof Id) {
 					final String nm = ((Id)token).getValue();
@@ -391,7 +409,7 @@ public class Parser {
 				} else if (token instanceof Other)
 					new ConstantValue(expr, ((Other)token).getValue(), token.getLine());
 				else
-					throw new ZussException("unexpected "+token, token.getLine());
+					throw error("unexpected "+token, token);
 				opExpected = true;
 			}
 		}
@@ -400,14 +418,14 @@ public class Parser {
 			final Op xop = ops.remove(0);
 			final Operator.Type xtype = xop.getValue();
 			if (xtype == COMMA)
-				throw new ZussException("unexpected ','", xop.getLine());
+				throw error("unexpected ','", xop);
 			if (xtype == LPAREN || xtype == FUNC)
-				throw new ZussException("')' expected", xop.getLine());
+				throw error("')' expected", xop);
 			new Operator(expr, xtype, xop.getLine());
 		}
 
 		if (expr.getChildren().isEmpty())
-			throw new ZussException("expression expected", expr.getLine());
+			throw error("expression expected", expr.getLine());
 	}
 
 	private void putback(Token token) {
@@ -418,7 +436,7 @@ public class Parser {
 	}
 
 	private class Context {
-		private final ZussDefinition sheet = new ZussDefinition();
+		private final ZussDefinition sheet = new ZussDefinition(getFilename());
 		private final List<State> _states = new ArrayList<State>();
 		private State state = new State(sheet, false);
 

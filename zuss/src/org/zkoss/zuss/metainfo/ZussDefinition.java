@@ -18,8 +18,18 @@ package org.zkoss.zuss.metainfo;
  * @author tomyeh
  */
 public class ZussDefinition extends BranchInfo {
-	public ZussDefinition() {
+	private final String _filename;
+
+	public ZussDefinition(String filename) {
 		super(1);
+		_filename = filename;
+	}
+
+	/** Returns the filename of ZUSS that this definition represents,
+	 * or null if not available.
+	 */
+	public String getFilename() {
+		return _filename;
 	}
 
 	@Override

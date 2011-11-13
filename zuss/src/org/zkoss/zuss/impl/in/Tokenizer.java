@@ -47,11 +47,23 @@ import org.zkoss.zuss.metainfo.Operator;
 	};
 
 	private final Input _in;
+	private List<String> _filenames = new ArrayList<String>();
 	/** Read ahead (used to implement {@link #putback}. */
 	private final List<Token> _ahead = new ArrayList<Token>();
 
-	public Tokenizer(Reader in) {
+	public Tokenizer(Reader in, String filename) {
 		_in = new Input(in);
+		_filenames.add(0, filename);
+	}
+
+	/** Returns the filename associated with this tokenizer.
+	 */
+	public String getFilename() {
+		return _filenames.get(0);
+	}
+
+	private ZussException error(String msg, int lineno) {
+		return new ZussException(msg, getFilename(), lineno);
 	}
 
 	/** Returns the input.
@@ -102,14 +114,14 @@ import org.zkoss.zuss.metainfo.Operator;
 
 				final Operator.Type type = OPTYPES2[j];
 				if (type == null)
-					throw new  ZussException("'=' expected after "+c0, getLine());
+					throw error("'=' expected after "+c0, getLine());
 				_in.putback(c0);
 				return new Op(type, getLine());
 			}
 			if (cc == '&' || cc == '|') {
 				final char c0 = _in.next();
 				if (c0 != cc)
-					throw new ZussException("Unexpected "+c0, getLine());
+					throw error("Unexpected "+c0, getLine());
 				return new Op(cc == '&' ? Operator.Type.AND: Operator.Type.OR, getLine());
 			}
 		}
@@ -227,7 +239,7 @@ import org.zkoss.zuss.metainfo.Operator;
 		}
 
 		if (quot != EOF)
-			throw new ZussException("unclosed string literal", strlineno);
+			throw error("unclosed string literal", strlineno);
 		return new Other(sb.toString().trim(), lineno);
 	}
 	private static boolean isValidId(char cc) {
@@ -248,7 +260,7 @@ import org.zkoss.zuss.metainfo.Operator;
 		}
 
 		if (sb.length() == 0)
-			throw new ZussException("identifier required after @", getLine());
+			throw error("identifier required after @", getLine());
 		final String nm = sb.toString();
 		if ("if".equals(nm))
 			return new Keyword(Keyword.Value.IF, getLine());
@@ -277,10 +289,10 @@ import org.zkoss.zuss.metainfo.Operator;
 			}
 			sb.append(cc);
 		}
-		throw new ZussException("unclosed string literal", lineno);
+		throw error("unclosed string literal", lineno);
 	}
 
-	private static class Input {
+	private class Input {
 		private final Reader _in;
 		private final char[] _buf = new char[4086];
 		private final StringBuffer _ahead = new StringBuffer(); //read ahead
@@ -337,7 +349,7 @@ import org.zkoss.zuss.metainfo.Operator;
 						break; //failed
 				}
 			}
-			throw new ZussException("unclosed comment", _lineno);
+			throw error("unclosed comment", _lineno);
 		}
 		/** Put back what is read. It must be in stack order. */
 		private void putback(char cc) {
