@@ -37,7 +37,7 @@ package org.zkoss.zuss.impl.in;
 
 	@Override
 	public String toString() {
-		return "keyword, " + _value.value;
+		return _value.value;
 	}
 	/** The value of a keyword. */
 	/*package*/ static enum Value {

@@ -1,0 +1,9 @@
+/* Test @include */
+@border_radious(@radius: 4px, @color: orange) {
+  border-radius: @radius;
+  div.hilite {
+    color: @color;
+  }
+}
+
+@include inc5.zuss;

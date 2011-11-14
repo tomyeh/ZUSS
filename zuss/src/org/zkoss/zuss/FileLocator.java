@@ -14,6 +14,8 @@ package org.zkoss.zuss;
 
 import java.io.File;
 import java.io.Reader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 
 /**
@@ -35,7 +37,10 @@ public class FileLocator implements Locator {
 	@Override
 	public Reader getResource(String name)
 	throws IOException {
-		//TODO
-		return null;
+		File file = new File(name);
+		final InputStream is = new java.io.FileInputStream(
+			file.isAbsolute() ? file: new File(_dir, name));
+		return _charset != null ?
+			new InputStreamReader(is, _charset): new InputStreamReader(is);
 	}
 }

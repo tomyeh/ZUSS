@@ -17,7 +17,7 @@ package org.zkoss.zuss;
  * @author tomyeh
  */
 public interface Locator {
-	/** Returns the resource of the given name.
+	/** Returns the resource of the given name, or null if not found.
 	 */
 	public java.io.Reader getResource(String name)
 	throws java.io.IOException;

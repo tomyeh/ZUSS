@@ -447,43 +447,14 @@ function invoke_ant
 }
 
 start=`date +%s`
-if [ "$javadocAll" = "true" ] ; then
-	echo "prepare javadoc all"
-	rm -rf javadoctmp
-	mkdir -p javadoctmp/src
-	maindir="$(pwd)"
-	chmod -R 755 $maindir
-	touch javadoctmp/tmp
-	for target in $targetList ; do
-		echo "copy $target"
-		if [ "$target" != "zuss-test" ] ; then
-			if [ -d $target/src/org ] ; then
-				cp -rp $target/src/org* javadoctmp/src
-			fi
-			if [ -d $target/codegen/org ] ; then
-				cp -rp $target/codegen/org* javadoctmp/src
-			fi
-			if [ -f $target/classpath ] ; then
-				cat $target/classpath >> javadoctmp/tmp
-			fi
-		fi
-	done
-	sort javadoctmp/tmp | uniq >> javadoctmp/classpath
-	rm javadoctmp/tmp
-	cp zk/version zk/format javadoctmp
-	invoke_ant javadoc javadoctmp ZK
-	rm -rf javadoctmp
-	exit 1
-else
-	echo "targets: ${targetList}"
-	for target in $targetList ; do
-		if [ -d $target ] ; then
-			invoke_ant $cmd $target
-		else
-			echo "Ignore: $target doesn't exist"
-		fi
-	done
-fi
+echo "targets: ${targetList}"
+for target in $targetList ; do
+	if [ -d $target ] ; then
+		invoke_ant $cmd $target
+	else
+		echo "Ignore: $target doesn't exist"
+	fi
+done
 end=`date +%s`
 if [ "${end%s}" = "${end}" ] ; then
 	buildTime=$(( $end - $start ))

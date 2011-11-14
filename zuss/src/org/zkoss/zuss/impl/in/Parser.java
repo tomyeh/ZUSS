@@ -113,7 +113,35 @@ public class Parser {
 	}
 
 	private void parseKeyword(Context ctx, Keyword kw) throws IOException {
-		//TODO
+		switch (kw.getValue()) {
+		case INCLUDE:
+			parseInclude(ctx, kw);
+			return;
+		}
+		throw error(kw+" not supported yet", kw);
+	}
+	private void parseInclude(Context ctx, Keyword kw) throws IOException {
+		Token t0 = next(ctx);
+		if (!(t0 instanceof Other))
+			throw error("a file name expected", t0);
+		final String name = ((Other)t0).getValue();
+		t0 = next(ctx);
+		if (t0 != null
+		&& (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ';'))
+			throw error("';' expected", t0);
+		if (_loc == null)
+			throw error("@include requires an effective locator", kw);
+		final Reader reader = _loc.getResource(name);
+		if (reader == null)
+			throw error("file not found, "+name, kw);
+
+		_in.pushInput(reader, name);
+		try {
+			parse(ctx);
+		} finally {
+			_in.popInput();
+			reader.close();
+		}
 	}
 
 	/** Parse a definition starts with {@link Id}. */

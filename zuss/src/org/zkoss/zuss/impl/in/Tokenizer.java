@@ -46,20 +46,42 @@ import org.zkoss.zuss.metainfo.Operator;
 		Operator.Type.EQ, Operator.Type.NE
 	};
 
-	private final Input _in;
-	private List<String> _filenames = new ArrayList<String>();
+	private Input _in;
+	private String _filename;
 	/** Read ahead (used to implement {@link #putback}. */
-	private final List<Token> _ahead = new ArrayList<Token>();
+	private List<Token> _ahead;
+	private final List<InputInfo> _inputs = new ArrayList<InputInfo>();
 
 	public Tokenizer(Reader in, String filename) {
+		init(in, filename);
+	}
+	private void init(Reader in, String filename) {
 		_in = new Input(in);
-		_filenames.add(0, filename);
+		_filename = filename;
+		_ahead = new ArrayList<Token>();
+	}
+
+	/** Read the tokens from the given input, and pushes the current input
+	 * to a stack.
+	 */
+	public void pushInput(Reader in, String filename) {
+		_inputs.add(0, new InputInfo(_in, _filename, _ahead));
+		init(in, filename);
+	}
+	/** Give up the input pushed by {@link #pushInput}, and restores the previous
+	 * input.
+	 */
+	public void popInput() {
+		final InputInfo ii = _inputs.remove(0);
+		_in = ii.input;
+		_filename = ii.filename;
+		_ahead = ii.ahead;
 	}
 
 	/** Returns the filename associated with this tokenizer.
 	 */
 	public String getFilename() {
-		return _filenames.get(0);
+		return _filename;
 	}
 
 	private ZussException error(String msg, int lineno) {
@@ -292,6 +314,16 @@ import org.zkoss.zuss.metainfo.Operator;
 		throw error("unclosed string literal", lineno);
 	}
 
+	private static class InputInfo {
+		private final Input input;
+		private final String filename;
+		private final List<Token> ahead;
+		private InputInfo(Input input, String filename, List<Token> ahead) {
+			this.input = input;
+			this.filename = filename;
+			this.ahead = ahead;
+		}
+	}
 	private class Input {
 		private final Reader _in;
 		private final char[] _buf = new char[4086];

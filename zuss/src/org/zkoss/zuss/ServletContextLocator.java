@@ -13,6 +13,8 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 package org.zkoss.zuss;
 
 import java.io.Reader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import javax.servlet.ServletContext;
 
@@ -27,14 +29,22 @@ public class ServletContextLocator implements Locator {
 
 	public ServletContextLocator(ServletContext ctx, String dir, String charset) {
 		_ctx = ctx;
+		if (dir == null) dir = "";
+		if (dir.length() > 0 && dir.charAt(dir.length() - 1) != '/')
+			dir += '/';
 		_dir = dir;
 		_charset = charset;
+		
 	}
 
 	@Override
 	public Reader getResource(String name)
 	throws IOException {
-		//TODO
-		return null;
+		if (!name.startsWith("/"))
+			name = _dir + name;
+		final InputStream is = _ctx.getResourceAsStream(name);
+		return is != null ? _charset != null ?
+			new InputStreamReader(is, _charset): new InputStreamReader(is): null;
+
 	}
 }

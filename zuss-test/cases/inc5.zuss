@@ -1,0 +1,7 @@
+/* included by test5.zuss */
+div.rounded {
+  @border_radious();
+}
+button.rounded {
+  @border_radious(3px, blue);
+}
