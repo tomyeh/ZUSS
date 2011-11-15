@@ -44,6 +44,8 @@ package org.zkoss.zuss.impl.in;
 		IF("@if"), ELSE("@else"), ELIF("@elif"), INCLUDE("@include"),
 		/** CSS's @import. */
 		IMPORT("@import"),
+		/** CSS's @charset. */
+		CHARSET("@charset"),
 		/** CSS's @media. */
 		MEDIA("@media");
 

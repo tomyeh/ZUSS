@@ -110,13 +110,9 @@ import org.zkoss.zuss.metainfo.Operator;
 		if (!_ahead.isEmpty())
 			return _ahead.remove(0);
 
-		char cc;
-		do {
-			cc = _in.next();
-			if (cc == EOF) //no more
-				return null; //EOF
-		} while (WHITESPACES.indexOf(cc) >= 0);
-
+		char cc = skipWhitespaces();
+		if (cc == EOF)
+			return null;
 		if (cc == '@')
 			return asId();
 		if (SYMBOLS.indexOf(cc) >= 0)
@@ -149,15 +145,42 @@ import org.zkoss.zuss.metainfo.Operator;
 		}
 		return asOther(cc, expressioning);
 	}
+	private char skipWhitespaces() throws IOException {
+		char cc;
+		do {
+			cc = _in.next();
+		} while (cc != EOF && WHITESPACES.indexOf(cc) >= 0);
+		return cc;
+	}
+	/** Returns the following content util (and including) the given character.
+	 */
+	public String getUntil(char upto) throws IOException {
+		final StringBuffer sb = new StringBuffer();
+		char quot = EOF;
+		for (char cc = skipWhitespaces(); cc != EOF; cc = _in.next()) {
+			sb.append(cc);
+			if (cc == quot) {
+				quot = EOF;
+			} else if (cc == '\'' || cc == '"') {
+				quot = cc;
+			} else if (quot != EOF) {
+				if (cc == '\\') {
+					cc = _in.next();
+					if (cc == EOF) break;
+					sb.append(cc);
+				}
+			} else if (cc == upto) {
+				break;
+			}
+		}
+		return sb.toString();
+	}
 	/** Peeks the next none-whitespace character.
 	 * It won't change the state of this tokenizer.
 	 * @return the next none-whitespace character.
 	 */
 	public char peek() throws IOException {
-		char cc;
-		do {
-			cc = _in.next();
-		} while (WHITESPACES.indexOf(cc) >= 0);
+		char cc = skipWhitespaces();
 		_in.putback(cc);
 		return cc;
 	}
@@ -168,10 +191,20 @@ import org.zkoss.zuss.metainfo.Operator;
 	public char peekAfterRPAREN() throws IOException {
 		final StringBuffer sb = new StringBuffer();
 		int cparen = 1;
-		char cc;
+		char cc, quot = EOF;
 		while ((cc = _in.next()) != EOF) {
 			sb.append(cc);
-			if (cc == '(') {
+			if (cc == quot) {
+				quot = EOF;
+			} else if (cc == '\'' || cc == '"') {
+				quot = cc;
+			} else if (quot != EOF) {
+				if (cc == '\\') {
+					cc = _in.next();
+					if (cc == EOF) break;
+					sb.append(cc);
+				}
+			} else if (cc == '(') {
 				++cparen;
 			} else if (cc == ')' && --cparen == 0) {
 				cc = peek();

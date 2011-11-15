@@ -1,9 +1,14 @@
 /* Test @include */
-@border_radious(@radius: 4px, @color: orange) {
-  border-radius: @radius;
-  div.hilite {
-    color: @color;
-  }
-}
+@import "mystyle.css";
+@import url("mystyle.css");
 
-@include inc5.zuss;
+@media print {
+  @border_radious(@radius: 4px, @color: orange) {
+    border-radius: @radius;
+    div.hilite {
+      color: @color;
+    }
+  }
+
+  @include inc5.zuss;
+}

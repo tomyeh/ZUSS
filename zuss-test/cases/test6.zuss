@@ -1,0 +1,6 @@
+div {
+	@media print {
+		span { color: orange;}
+	}
+	border: 1px solid blue;
+}

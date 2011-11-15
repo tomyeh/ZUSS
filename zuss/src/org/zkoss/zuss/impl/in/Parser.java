@@ -27,8 +27,10 @@ import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.MediaDefinition;
 import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
+import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
 import org.zkoss.zuss.metainfo.VariableValue;
@@ -96,14 +98,14 @@ public class Parser {
 			} else if (token instanceof Id) {
 				parseId(ctx, (Id)token);
 			} else if (token instanceof Selector) {
-				final RuleDefinition rdef = new RuleDefinition(ctx.state.parent, token.getLine());
+				final RuleDefinition rdef = new RuleDefinition(ctx.block.owner, token.getLine());
 				rdef.getSelectors().add(((Selector)token).getValue());
 				parseSelector(ctx, rdef);
-			} else if (ctx.state.bracing && token instanceof Symbol
+			} else if (!ctx.isRoot() && token instanceof Symbol
 			&& ((Symbol)token).getValue() == '}') {
 				return; //done (closed)
 			} else if (token instanceof Other) {
-				if (ctx.state.parent instanceof ZussDefinition)
+				if (ctx.block.owner instanceof ZussDefinition)
 					throw error("{ expected; not "+token, token);
 				parseStyle(ctx, (Other)token);
 			} else {
@@ -117,8 +119,25 @@ public class Parser {
 		case INCLUDE:
 			parseInclude(ctx, kw);
 			return;
+		case CHARSET:
+		case IMPORT:
+			new RawValue(ctx.block.owner, "@import "+_in.getUntil(';')+'\n', kw.getLine());
+			return;
+		case MEDIA:
+			String scope = _in.getUntil('{');
+			if (!scope.endsWith("{"))
+				throw error("'{' expected", kw);
+			scope = scope.substring(0, scope.length() - 1);
+			newBlock(ctx,
+				new MediaDefinition(ctx.block.owner, scope, kw.getLine()));
+			return;
 		}
 		throw error(kw+" not supported yet", kw);
+	}
+	private void newBlock(Context ctx, NodeInfo node) throws IOException {
+		ctx.push(new Block(node));
+		parse(ctx);
+		ctx.pop();
 	}
 	private void parseInclude(Context ctx, Keyword kw) throws IOException {
 		Token t0 = next(ctx);
@@ -146,10 +165,10 @@ public class Parser {
 
 	/** Parse a definition starts with {@link Id}. */
 	private void parseId(Context ctx, Id id) throws IOException {
-		final boolean old = ctx.state.expressioning;
-		ctx.state.expressioning = true;
+		final boolean old = ctx.block.expressioning;
+		ctx.block.expressioning = true;
 		parseId0(ctx, id);
-		ctx.state.expressioning = old;
+		ctx.block.expressioning = old;
 	}
 	private void parseId0(Context ctx, Id id) throws IOException {
 		Token t0 =  next(ctx);
@@ -160,7 +179,7 @@ public class Parser {
 					//note: expr is NOT a child of any node but part of VariableDefinition below
 				parseExpression(ctx, expr, ';');
 				new VariableDefinition(
-					ctx.state.parent, id.getValue(), expr, id.getLine());
+					ctx.block.owner, id.getValue(), expr, id.getLine());
 				return;
 			}
 		} else if (t0 instanceof Op && ((Op)t0).getValue() == LPAREN) {
@@ -170,7 +189,7 @@ public class Parser {
 			if (cc == ';' || cc == '}' || cc == EOF) { //use of function/mixin
 				putback(t0);
 				putback(id);
-				parseExpression(ctx, new Expression(ctx.state.parent, id.getLine()), EOF);
+				parseExpression(ctx, new Expression(ctx.block.owner, id.getLine()), EOF);
 
 				t0 = next(ctx);
 				if (t0 instanceof Symbol) {
@@ -204,7 +223,7 @@ public class Parser {
 							((Other)t0).getValue(), id.getValue(), adefs.length,
 							getFilename(), t0.getLine());
 						new FunctionDefinition(
-							ctx.state.parent, id.getValue(), adefs, mtd, id.getLine());
+							ctx.block.owner, id.getValue(), adefs, mtd, id.getLine());
 						return;
 					} else {
 						putback(t1);
@@ -212,15 +231,12 @@ public class Parser {
 							//note: expr is NOT a child of any node but part of VariableDefinition below
 						parseExpression(ctx, expr, ';');
 						new FunctionDefinition(
-							ctx.state.parent, id.getValue(), adefs, expr, id.getLine());
+							ctx.block.owner, id.getValue(), adefs, expr, id.getLine());
 						return;
 					}
 				} else if (symbol == '{') { //mixin
-					final MixinDefinition mdef = new MixinDefinition(
-						ctx.state.parent, id.getValue(), adefs, id.getLine());
-					ctx.push(new State(mdef, true));
-					parse(ctx);
-					ctx.pop();
+					newBlock(ctx, new MixinDefinition(
+						ctx.block.owner, id.getValue(), adefs, id.getLine()));
 					return;
 				}
 			}
@@ -243,9 +259,7 @@ public class Parser {
 			rdef.getSelectors().add(((Selector)t1).getValue());
 			parseSelector(ctx, rdef);
 		} else { //{
-			ctx.push(new State(rdef, true));
-			parse(ctx);
-			ctx.pop();
+			newBlock(ctx, rdef);
 		}
 	}
 
@@ -254,7 +268,7 @@ public class Parser {
 		if (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ':')
 			throw error(": expected", t0 != null ? t0: name);
 
-		StyleDefinition sdef = new StyleDefinition(ctx.state.parent, name.getValue(), name.getLine());
+		StyleDefinition sdef = new StyleDefinition(ctx.block.owner, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
 			if (token instanceof Other) {
 				new ConstantValue(sdef, ((Other)token).getValue(), token.getLine());
@@ -326,10 +340,10 @@ public class Parser {
 	 */
 	private void parseExpression(Context ctx, Expression expr, final char endcc)
 	throws IOException {
-		final boolean old = ctx.state.expressioning;
-		ctx.state.expressioning = true;
+		final boolean old = ctx.block.expressioning;
+		ctx.block.expressioning = true;
 		parseExpression0(ctx, expr, endcc);
-		ctx.state.expressioning = old;
+		ctx.block.expressioning = old;
 	}
 	private void parseExpression0(Context ctx, Expression expr, final char endcc)
 	throws IOException {
@@ -460,33 +474,34 @@ public class Parser {
 		_in.putback(token);
 	}
 	private Token next(Context ctx) throws IOException {
-		return _in.next(ctx.state.expressioning);
+		return _in.next(ctx.block.expressioning);
 	}
 
 	private class Context {
 		private final ZussDefinition sheet = new ZussDefinition(getFilename());
-		private final List<State> _states = new ArrayList<State>();
-		private State state = new State(sheet, false);
+		private final List<Block> _blocks = new ArrayList<Block>();
+		private Block block = new Block(sheet);
 
-		private void push(State state) {
-			_states.add(0, this.state);
-			this.state = state;
+		/** Returns whether the current block is the root. */
+		private boolean isRoot() {
+			return _blocks.isEmpty();
+		}
+		private void push(Block block) {
+			_blocks.add(0, this.block);
+			this.block = block;
 		}
 		private void pop() {
-			this.state = _states.remove(0);
+			this.block = _blocks.remove(0);
 		}
 	}
-	private class State {
-		/** The parent node. */
-		private final NodeInfo parent;
-		/** whether { is encountered, but not }. That is, } is expected. */
-		private final boolean bracing;
+	private class Block {
+		/** The owner that owns this block. */
+		private final NodeInfo owner;
 		/** whether it is parsing an expression, i.e., operations are recognized. */
 		private boolean expressioning;
 
-		private State(NodeInfo parent, boolean bracing) {
-			this.parent = parent;
-			this.bracing = bracing;
+		private Block(NodeInfo owner) {
+			this.owner = owner;
 		}
 	}
 }

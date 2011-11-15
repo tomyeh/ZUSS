@@ -29,8 +29,10 @@ import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
 import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.MediaDefinition;
 import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
+import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.ConstantValue;
@@ -59,15 +61,7 @@ public class Translator {
 	public void translate() throws IOException {
 		try {
 			final Scope scope = new Scope(null);
-			for (NodeInfo node: _zuss.getChildren()) {
-				if (node instanceof RuleDefinition) {
-					outRule(scope, null, (RuleDefinition)node);
-						//Like JavaScript, a rule doesn't instantiate a new scope.
-						//Otherwise, it is tough to implement the local scope
-				} else {
-					outOther(scope, node);
-				}
-			}
+			outChildren(scope, null, _zuss);
 		} finally {
 			try {
 				_out.close();
@@ -84,6 +78,19 @@ public class Translator {
 	}
 	private ZussException error(String msg, int lineno, Throwable t) {
 		return new ZussException(msg, _zuss.getFilename(), lineno, t);
+	}
+
+	private void outChildren(Scope scope, List<String> outerSels, NodeInfo node)
+	throws IOException {
+		for (NodeInfo child: node.getChildren()) {
+			if (child instanceof RuleDefinition) {
+				outRule(scope, outerSels, (RuleDefinition)child);
+					//Like JavaScript, a rule doesn't instantiate a new scope.
+					//Otherwise, it is tough to implement the local scope
+			} else {
+				outOther(scope, outerSels, child);
+			}
+		}
 	}
 
 	/** Generates the rule definitions.
@@ -162,7 +169,7 @@ public class Translator {
 				}
 			}
 		} else {
-			outOther(scope, node);
+			outOther(scope, thisSels, node);
 		}
 		return empty;
 	}
@@ -183,7 +190,7 @@ public class Translator {
 	}
 
 	/** Generates definitions other than rules and styles. */
-	private void outOther(Scope scope, NodeInfo node) throws IOException {
+	private void outOther(Scope scope, List<String> outerSels, NodeInfo node) throws IOException {
 		if (node instanceof VariableDefinition) {
 			final VariableDefinition vdef = (VariableDefinition)node;
 			scope.setVariable(vdef.getName(), eval(scope, vdef));
@@ -192,6 +199,14 @@ public class Translator {
 			scope.setFunction((FunctionDefinition)node);
 		} else if (node instanceof MixinDefinition) {
 			scope.setFunction((MixinDefinition)node);
+		} else if (node instanceof MediaDefinition) {
+			write("@media ");
+			write(((MediaDefinition)node).getRange());
+			write("{\n");
+			outChildren(scope, outerSels, node);
+			write ("}\n");
+		} else if (node instanceof RawValue) {
+			write(((RawValue)node).getValue());
 		} else {
 			throw error("unknown "+node, node);
 		}

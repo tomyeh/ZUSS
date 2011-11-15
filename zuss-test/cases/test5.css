@@ -1,3 +1,6 @@
+@import "mystyle.css";
+@import url("mystyle.css");
+@media print {
 div.rounded{
 	border-radius: 4px;
 }
@@ -9,4 +12,5 @@ button.rounded{
 }
 button.rounded div.hilite{
 	color: blue;
+}
 }
