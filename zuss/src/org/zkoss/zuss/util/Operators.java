@@ -107,12 +107,29 @@ public class Operators {
 	 * @return 1 if val0 is greater, 0 if equals, -1 if smaller
 	 */
 	public static int compare(Object val0, Object val1) {
-		return 0;
+		val0 = guess(val0);
+		val1 = guess(val1);
+		if (val0 instanceof Color)
+			return ((Color)val0).compareTo(val1);
+		if (val1 instanceof Color)
+			return -((Color)val1).compareTo(val0);
+		if (val0 instanceof Size)
+			return ((Size)val0).compareTo(val1);
+		if (val1 instanceof Size)
+			return -((Size)val1).compareTo(val0);
+		if (val0 instanceof Number && val1 instanceof Number) {
+			final double v0 = ((Number)val0).doubleValue(),
+				v1 = ((Number)val1).doubleValue();
+			return v0 > v1 ? 1: v0 == v1 ? 0: -1;
+		}
+		return val0 != null ? val1 != null ?
+			val0.toString().compareTo(val1.toString()): 1: val1 != null ? -1: 0;
 	}
 
 	/** Tests if the given object is true (i.e., non-null, not empty, not false). */
 	public static boolean isTrue(Object val0) {
-		return true;
+		final Boolean b = (Boolean)Classes.coerce(Boolean.class, val0);
+		return b != null && b.booleanValue();
 	}
 
 	/** Guess what a string means. */

@@ -1,6 +1,6 @@
 ZUSS (ZK User-interface Style Sheet) is an extension to CSS.
-ZUSS is backward compatible with CSS, while extending it with variables, mixins,
-nested rules, expressions, and Java methods with existing CSS syntax.
+ZUSS is backward compatible with CSS and CSS3, while extending it with variables,
+mixins, nested rules, expressions, and Java methods with existing CSS syntax.
 
 Design Goals
 
@@ -22,4 +22,5 @@ Download
 Acknowledgement
 
 ZUSS is inspired by LESS and SASS. Unlike LESS and SASS, the processing of
-ZUSS file won't require the JavaScript or Ruby interpreter.
+ZUSS file won't require the JavaScript or Ruby interpreter. In additions, ZUSS
+is complaint with CSS 3 respecting the sophisticated selectors, styles and functions.

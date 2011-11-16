@@ -14,6 +14,7 @@ package org.zkoss.zuss.metainfo;
 
 /**
  * Represents an if definition.
+ * Each child must be an instance of {@link BlockDefinition}.
  * @author tomyeh
  */
 public class IfDefinition extends BranchInfo {

@@ -32,6 +32,8 @@ import org.zkoss.zuss.metainfo.FunctionDefinition;
 import org.zkoss.zuss.metainfo.MediaDefinition;
 import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
+import org.zkoss.zuss.metainfo.IfDefinition;
+import org.zkoss.zuss.metainfo.BlockDefinition;
 import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.FunctionValue;
@@ -82,14 +84,27 @@ public class Translator {
 
 	private void outChildren(Scope scope, List<String> outerSels, NodeInfo node)
 	throws IOException {
-		for (NodeInfo child: node.getChildren()) {
-			if (child instanceof RuleDefinition) {
-				outRule(scope, outerSels, (RuleDefinition)child);
-					//Like JavaScript, a rule doesn't instantiate a new scope.
-					//Otherwise, it is tough to implement the local scope
-			} else {
-				outOther(scope, outerSels, child);
-			}
+		for (NodeInfo child: node.getChildren())
+			outNode(scope, outerSels, child);
+	}
+	private void outNode(Scope scope, List<String> outerSels, NodeInfo node)
+	throws IOException {
+		if (node instanceof RuleDefinition) {
+			outRule(scope, outerSels, (RuleDefinition)node);
+				//Like JavaScript, a rule doesn't instantiate a new scope.
+				//Otherwise, it is tough to implement the local scope
+		} else if (node instanceof Expression) {
+		//here must be a mixin, since outChildren is called at the same level
+		//as rules (such as at top-level or in @media)
+			final MixinInfo mixin = getMixinInfo(scope, (Expression)node);
+			if (mixin == null)
+				throw error("only a mixin invocation is allowed", node);
+
+			final Scope subsc = new LocalScope(scope, mixin.argmap); //a local scope
+			for (NodeInfo subnd: mixin.mixin.getChildren())
+				outRuleInner(subsc, outerSels, subnd, "", "", true);
+		} else {
+			outOther(scope, outerSels, node);
 		}
 	}
 
@@ -133,28 +148,17 @@ public class Translator {
 				write(head);
 			}
 			outStyle(scope, (StyleDefinition)node);
-		} else if (node instanceof Expression) {
+		} else if (node instanceof Expression) { //could be mixin or value expression
 			final Expression expr = (Expression)node;
-			final List<NodeInfo> exprList = expr.getChildren();
-			final int j;
-			final NodeInfo lastChild;
-			final FunctionValue fv;
-			final NodeInfo fn;
-			if ((j = exprList.size() - 1) >= 0
-			&& ((lastChild=exprList.get(j)) instanceof FunctionValue)
-			&& (fn = scope.getFunction((fv=(FunctionValue)lastChild).getName())) instanceof MixinDefinition) {
-			//handle mixin
+			final MixinInfo mixin = getMixinInfo(scope, expr);
+			if (mixin != null) { //yes, a minin
 				if (empty) {
 					empty = false;
 					write(head);
 				}
 
-				List<Object> values = evalExpression(scope, exprList.subList(0, j));
-				Map<String, Object> argmap = getArgumentMap(
-					((MixinDefinition)fn).getArgumentDefinitions(),
-					getArguments(values, fv.getArgumentNumber(), fv.getLine()));
-				final Scope subsc = new LocalScope(scope, argmap); //a local scope
-				for (NodeInfo subnd: fn.getChildren()) {
+				final Scope subsc = new LocalScope(scope, mixin.argmap); //a local scope
+				for (NodeInfo subnd: mixin.mixin.getChildren()) {
 					empty = outRuleInner(subsc, thisSels, subnd, head, end, empty);
 				}
 			} else {
@@ -168,11 +172,52 @@ public class Translator {
 					write(o.toString());
 				}
 			}
+		} else if (node instanceof IfDefinition) { //in a rule
+			for (NodeInfo child: node.getChildren()) {
+				final BlockDefinition block = (BlockDefinition)child;
+				final Expression expr = block.getCondition();
+				if (expr == null || isTrue(scope, expr)) {
+					for (NodeInfo subnd: block.getChildren()) {
+						empty = outRuleInner(scope, thisSels, subnd, head, end, empty);
+					}
+					break; //done
+				}
+			}
 		} else {
 			outOther(scope, thisSels, node);
 		}
 		return empty;
 	}
+
+	/** Returns the map of arguments, or null if expr is not a mixin.
+	 */
+	private MixinInfo getMixinInfo(Scope scope, Expression expr)
+	throws IOException {
+		final List<NodeInfo> exprList = expr.getChildren();
+		final int j;
+		final NodeInfo lastChild;
+		final FunctionValue fv;
+		final NodeInfo fn;
+		if ((j = exprList.size() - 1) >= 0
+		&& ((lastChild=exprList.get(j)) instanceof FunctionValue)
+		&& (fn = scope.getFunction((fv=(FunctionValue)lastChild).getName())) instanceof MixinDefinition) {
+			List<Object> values = evalExpression(scope, exprList.subList(0, j));
+			return new MixinInfo((MixinDefinition)fn,
+				 getArgumentMap(
+					((MixinDefinition)fn).getArgumentDefinitions(),
+					getArguments(values, fv.getArgumentNumber(), fv.getLine())));
+		}
+		return null;
+	}
+	private static class MixinInfo {
+		private final MixinDefinition mixin;
+		private final Map<String, Object> argmap;
+		private MixinInfo(MixinDefinition mixin, Map<String, Object> argmap) {
+			this.mixin = mixin;
+			this.argmap = argmap;
+		}
+	}
+
 	private void outStyle(Scope scope, StyleDefinition sdef) throws IOException {
 		write('\t');
 		write(sdef.getName());
@@ -189,7 +234,7 @@ public class Translator {
 		write(";\n");
 	}
 
-	/** Generates definitions other than rules and styles. */
+	/** Generates definitions other than rules, styles and mixins. */
 	private void outOther(Scope scope, List<String> outerSels, NodeInfo node) throws IOException {
 		if (node instanceof VariableDefinition) {
 			final VariableDefinition vdef = (VariableDefinition)node;
@@ -199,6 +244,15 @@ public class Translator {
 			scope.setFunction((FunctionDefinition)node);
 		} else if (node instanceof MixinDefinition) {
 			scope.setFunction((MixinDefinition)node);
+		} else if (node instanceof IfDefinition) { //assume not in a rule (outerSel shall be null)
+			for (NodeInfo child: node.getChildren()) {
+				final BlockDefinition block = (BlockDefinition)child;
+				final Expression expr = block.getCondition();
+				if (expr == null || isTrue(scope, expr)) {
+					outChildren(scope, outerSels, block);
+					break; //done
+				}
+			}
 		} else if (node instanceof MediaDefinition) {
 			write("@media ");
 			write(((MediaDefinition)node).getRange());
@@ -218,14 +272,19 @@ public class Translator {
 		if (node instanceof VariableValue)
 			return eval(scope, (VariableValue)node);
 		else if (node instanceof Expression)
-			return eval(scope, (Expression)node);
+			return eval(scope, (Expression)node); //must be value expression, not mixin
 		throw error("unknown "+node, node);
 	}
+	/** @param expr it must be a value expression, not mixin. */
 	private Object eval(Scope scope, Expression expr) {
 		final List<Object> values = evalExpression(scope, expr.getChildren());
 		if (values.size() != 1)
 			throw error("failed evaluate "+expr+": "+values, expr);
 		return values.get(0);
+	}
+	private boolean isTrue(Scope scope, Expression expr) {
+		final Boolean b = (Boolean)Classes.coerce(Boolean.class, eval(scope, expr));
+		return b != null && b.booleanValue();
 	}
 	private List<Object> evalExpression(Scope scope, List<NodeInfo> exprList) {
 		final List<Object> values = new LinkedList<Object>();
@@ -242,7 +301,7 @@ public class Translator {
 				if (fn instanceof FunctionDefinition) {
 					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
 				} else if (fn instanceof MixinDefinition) {
-					throw error("not allowed, "+fn, lineno);
+					throw error("Mixin not allowed, "+fn, lineno);
 				} else {
 					values.add(invoke(fv.getName(), args, lineno));
 				}
@@ -415,6 +474,10 @@ public class Translator {
 					return node;
 			}
 			return null;
+		}
+		@Override
+		public String toString() {
+			return "scope("+_parent+')';
 		}
 	}
 	/** Represents a local scope used by the evaluation of mixin and function.

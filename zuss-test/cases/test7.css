@@ -1,0 +1,19 @@
+div{
+	border: 1px solid orange;
+}
+div.over100{
+	color: black;
+}
+div.over50{
+	color: blue;
+}
+div.other{
+	color: orange;
+	border: 1px solid orange;
+}
+div.other span.inside{
+	margin: 2px;
+}
+div.other{
+	color: orange;
+}

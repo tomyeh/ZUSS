@@ -1,0 +1,33 @@
+/*Test of if*/
+div {
+	@if (#300 > 5) {
+		border: 1px solid orange;
+	}
+}
+
+@block(@condition) {
+	@if (@condition > 100) {
+		div.over100 {
+			color: black;
+		}
+	} @elif (@condition > 50) {
+		div.over50 {
+			color: blue;
+		}
+	} @else {
+		div.other {
+			color: orange;
+			@if (@condition > 5) {
+				border: 1px solid orange;
+				span.inside {
+					margin: 2px;
+				}
+			}
+		}
+	}
+}
+
+@block(123);
+@block(70);
+@block(10);
+@block(1);

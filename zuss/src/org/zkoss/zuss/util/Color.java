@@ -21,7 +21,7 @@ import org.zkoss.zuss.ZussException;
  * Represents a color.
  * @author tomyeh
  */
-public class Color {
+public class Color implements Comparable<Object> {
 	public final int red, green, blue;
 	private final String _name;
 
@@ -143,6 +143,20 @@ public class Color {
 			return new Color(red / c.red, green / c.green, blue / c.blue);
 		}
 		throw new ZussException("Unable to divide "+this+" with "+o);
+	}
+	/** Compares with another object
+	 */
+	@Override
+	public int compareTo(Object o) {
+		if (o instanceof Color || o instanceof Number) {
+			int v1 = getValue(),
+				v2 = o instanceof Number ?
+					((Number)o).intValue(): ((Color)o).getValue();
+			return v1 > v2 ? 1: v1 == v2 ? 0: -1;
+		}
+		if (o == null)
+			return 1;
+		throw new ZussException("Unable to compare "+this+" with "+o);
 	}
 
 	/** Returns an integer representing this color

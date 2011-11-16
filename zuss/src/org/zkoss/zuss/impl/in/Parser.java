@@ -30,6 +30,8 @@ import org.zkoss.zuss.metainfo.FunctionDefinition;
 import org.zkoss.zuss.metainfo.MediaDefinition;
 import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.ArgumentDefinition;
+import org.zkoss.zuss.metainfo.IfDefinition;
+import org.zkoss.zuss.metainfo.BlockDefinition;
 import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
@@ -106,7 +108,7 @@ public class Parser {
 				return; //done (closed)
 			} else if (token instanceof Other) {
 				if (ctx.block.owner instanceof ZussDefinition)
-					throw error("{ expected; not "+token, token);
+					throw error("'{' expected; not "+token, token);
 				parseStyle(ctx, (Other)token);
 			} else {
 				throw error("unknown "+token, token);
@@ -115,6 +117,8 @@ public class Parser {
 	}
 
 	private void parseKeyword(Context ctx, Keyword kw) throws IOException {
+		final IfDefinition idef;
+		final Expression expr;
 		switch (kw.getValue()) {
 		case INCLUDE:
 			parseInclude(ctx, kw);
@@ -131,8 +135,34 @@ public class Parser {
 			newBlock(ctx,
 				new MediaDefinition(ctx.block.owner, scope, kw.getLine()));
 			return;
+		case IF:
+			nextAndCheck(ctx, '(', false);
+			expr = new Expression(_in.getLine());
+			parseExpression(ctx, expr, '{');
+			newBlock(ctx,
+				new BlockDefinition(
+					new IfDefinition(ctx.block.owner, kw.getLine()), expr, expr.getLine()));
+			return;
+		case ELSE:
+			idef = getLastIf(ctx, kw);
+			nextAndCheck(ctx, '{', false);
+			newBlock(ctx, new BlockDefinition(idef, null, kw.getLine()));
+			return;
+		case ELIF:
+			idef = getLastIf(ctx, kw);
+			expr = new Expression(_in.getLine());
+			parseExpression(ctx, expr, '{');
+			newBlock(ctx, new BlockDefinition(idef, expr, kw.getLine()));
+			return;
 		}
 		throw error(kw+" not supported yet", kw);
+	}
+	private IfDefinition getLastIf(Context ctx, Keyword kw) {
+		final List<NodeInfo> children = ctx.block.owner.getChildren();
+		final NodeInfo node = children.isEmpty() ? null: children.get(children.size() - 1);
+		if (node instanceof IfDefinition)
+			return (IfDefinition)node;
+		throw error(kw+" must follow @if", kw);
 	}
 	private void newBlock(Context ctx, NodeInfo node) throws IOException {
 		ctx.push(new Block(node));
@@ -140,16 +170,14 @@ public class Parser {
 		ctx.pop();
 	}
 	private void parseInclude(Context ctx, Keyword kw) throws IOException {
+		if (_loc == null)
+			throw error("@include requires a locator", kw);
 		Token t0 = next(ctx);
 		if (!(t0 instanceof Other))
 			throw error("a file name expected", t0);
+		nextAndCheck(ctx, ';', true);
+
 		final String name = ((Other)t0).getValue();
-		t0 = next(ctx);
-		if (t0 != null
-		&& (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ';'))
-			throw error("';' expected", t0);
-		if (_loc == null)
-			throw error("@include requires an effective locator", kw);
 		final Reader reader = _loc.getResource(name);
 		if (reader == null)
 			throw error("file not found, "+name, kw);
@@ -162,13 +190,20 @@ public class Parser {
 			reader.close();
 		}
 	}
+	private void nextAndCheck(Context ctx, char expected, boolean EOFallowed)
+	throws IOException {
+		Token t1 = _in.next(Tokenizer.Mode.SYMBOL);
+		if (!((t1 instanceof Symbol && ((Symbol)t1).getValue() == expected)
+		|| (t1 == null && EOFallowed)))
+			throw error("'" + expected + "' expected"+(t1 != null ? "; not " + t1: ""), t1);
+	}
 
 	/** Parse a definition starts with {@link Id}. */
 	private void parseId(Context ctx, Id id) throws IOException {
-		final boolean old = ctx.block.expressioning;
-		ctx.block.expressioning = true;
+		final Tokenizer.Mode old = ctx.block.tokenizerMode;
+		ctx.block.tokenizerMode = Tokenizer.Mode.EXPRESSION;
 		parseId0(ctx, id);
-		ctx.block.expressioning = old;
+		ctx.block.tokenizerMode = old;
 	}
 	private void parseId0(Context ctx, Id id) throws IOException {
 		Token t0 =  next(ctx);
@@ -201,7 +236,7 @@ public class Parser {
 						return; //done
 					}
 				}
-				throw error("expected ';', not "+t0, t0);
+				throw error("';' expected; not "+t0, t0);
 			}
 
 			//definition of function/mixin
@@ -215,9 +250,7 @@ public class Parser {
 						t0 = next(ctx);
 						if (!(t0 instanceof Other))
 							throw error("a class name expected, not "+t0, t0);
-						t1 = next(ctx);
-						if (!(t1 instanceof Symbol) || ((Symbol)t1).getValue() != ';')
-							throw error("';' expected", t1);
+						nextAndCheck(ctx, ';', true);
 
 						final Method mtd = Classes.getMethod(
 							((Other)t0).getValue(), id.getValue(), adefs.length,
@@ -250,7 +283,7 @@ public class Parser {
 		char symbol;
 		if (!(t0 instanceof Symbol)
 		|| ((symbol = ((Symbol)t0).getValue()) != ',' && symbol != '{'))
-			throw error(", or { expected after a selector", t0);
+			throw error("',' or '{' expected after a selector", t0);
 
 		if (symbol == ',') {
 			Token t1 = next(ctx);
@@ -264,9 +297,7 @@ public class Parser {
 	}
 
 	private void parseStyle(Context ctx, Other name) throws IOException {
-		Token t0 = next(ctx);
-		if (!(t0 instanceof Symbol) || ((Symbol)t0).getValue() != ':')
-			throw error(": expected", t0 != null ? t0: name);
+		nextAndCheck(ctx, ':', false);
 
 		StyleDefinition sdef = new StyleDefinition(ctx.block.owner, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
@@ -302,7 +333,7 @@ public class Parser {
 		putback(token);
 
 		final List<ArgumentDefinition> args = new ArrayList<ArgumentDefinition>();
-		for (; (token = next(ctx)) != null;) {
+		while ((token = next(ctx)) != null) {
 			if (!(token instanceof Id))
 				throw error("Argument must be defined with a variable (@xxx)", token);
 
@@ -340,10 +371,10 @@ public class Parser {
 	 */
 	private void parseExpression(Context ctx, Expression expr, final char endcc)
 	throws IOException {
-		final boolean old = ctx.block.expressioning;
-		ctx.block.expressioning = true;
+		final Tokenizer.Mode old = ctx.block.tokenizerMode;
+		ctx.block.tokenizerMode = Tokenizer.Mode.EXPRESSION;
 		parseExpression0(ctx, expr, endcc);
-		ctx.block.expressioning = old;
+		ctx.block.tokenizerMode = old;
 	}
 	private void parseExpression0(Context ctx, Expression expr, final char endcc)
 	throws IOException {
@@ -467,14 +498,14 @@ public class Parser {
 		}
 
 		if (expr.getChildren().isEmpty())
-			throw error("expression expected", expr.getLine());
+			throw error("an expression expected", expr.getLine());
 	}
 
 	private void putback(Token token) {
 		_in.putback(token);
 	}
 	private Token next(Context ctx) throws IOException {
-		return _in.next(ctx.block.expressioning);
+		return _in.next(ctx.block.tokenizerMode);
 	}
 
 	private class Context {
@@ -497,8 +528,7 @@ public class Parser {
 	private class Block {
 		/** The owner that owns this block. */
 		private final NodeInfo owner;
-		/** whether it is parsing an expression, i.e., operations are recognized. */
-		private boolean expressioning;
+		private Tokenizer.Mode tokenizerMode;
 
 		private Block(NodeInfo owner) {
 			this.owner = owner;

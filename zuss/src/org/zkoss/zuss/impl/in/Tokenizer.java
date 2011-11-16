@@ -103,10 +103,8 @@ import org.zkoss.zuss.metainfo.Operator;
 			_ahead.add(0, token);
 	}
 	/** Returns the next token, or null if EOF (end-of-file).
-	 * @param expressioning whether the caller is expecting an expression,
-	 * i.e., the operator is recognized.
 	 */
-	public Token next(boolean expressioning) throws IOException {
+	public Token next(Mode mode) throws IOException {
 		if (!_ahead.isEmpty())
 			return _ahead.remove(0);
 
@@ -118,7 +116,11 @@ import org.zkoss.zuss.metainfo.Operator;
 		if (SYMBOLS.indexOf(cc) >= 0)
 			return new Symbol(cc, getLine());
 
-		if (expressioning) {
+		if (mode == Mode.SYMBOL
+		&& (OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0))
+				return new Symbol(cc, getLine());
+
+		if (mode == Mode.EXPRESSION) {
 			if (cc == '\'' || cc == '"')
 				return asString(cc);
 
@@ -143,7 +145,7 @@ import org.zkoss.zuss.metainfo.Operator;
 				return new Op(cc == '&' ? Operator.Type.AND: Operator.Type.OR, getLine());
 			}
 		}
-		return asOther(cc, expressioning);
+		return asOther(cc, mode);
 	}
 	private char skipWhitespaces() throws IOException {
 		char cc;
@@ -217,13 +219,13 @@ import org.zkoss.zuss.metainfo.Operator;
 
 	/** Returns the next token as {@link Selector} or {@link Other}.
 	 */
-	private Token asOther(char cc, boolean expressioning) throws IOException {
+	private Token asOther(char cc, Mode mode) throws IOException {
 		final StringBuffer sb = new StringBuffer().append(cc);
 		final int lineno = getLine();
-		if (expressioning)
+		if (mode == Mode.EXPRESSION)
 			for (;;) {
 				cc = _in.next();
-				if (cc == EOF || WHITESPACES.indexOf(cc) >= 0
+				if (cc == EOF || WHITESPACES.indexOf(cc) >= 0 || cc == '@'
 				|| SYMBOLS.indexOf(cc) >= 0
 				|| OPS1.indexOf(cc) >= 0 || OPS2.indexOf(cc) >= 0) {
 					_in.putback(cc);
@@ -430,4 +432,7 @@ import org.zkoss.zuss.metainfo.Operator;
 				putback(cs.charAt(j));
 		}
 	}
+	/*package*/ static enum Mode {
+		DEFAULT, EXPRESSION, SYMBOL
+	};
 }

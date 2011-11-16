@@ -18,7 +18,7 @@ import org.zkoss.zuss.ZussException;
  * Represents a font size.
  * @author tomyeh
  */
-public class Size {
+public class Size implements Comparable<Object> {
 	public final double size;
 	public final String measure;
 
@@ -88,6 +88,21 @@ public class Size {
 	}
 	private static double round(double val) {
 		return Math.round(val * 10) / 10.0; //only one digit
+	}
+
+	/** Compares with another object
+	 */
+	@Override
+	public int compareTo(Object o) {
+		if (o instanceof Size || o instanceof Number) {
+			double v1 = getValue(),
+				v2 = o instanceof Number ?
+					((Number)o).doubleValue(): ((Size)o).getValue();
+			return v1 > v2 ? 1: v1 == v2 ? 0: -1;
+		}
+		if (o == null)
+			return 1;
+		throw new ZussException("Unable to compare "+this+" with "+o);
 	}
 
 	@Override
