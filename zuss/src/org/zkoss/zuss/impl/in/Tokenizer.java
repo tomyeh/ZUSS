@@ -154,9 +154,10 @@ import org.zkoss.zuss.metainfo.Operator;
 		} while (cc != EOF && WHITESPACES.indexOf(cc) >= 0);
 		return cc;
 	}
-	/** Returns the following content util (and including) the given character.
+	/** Returns the following content until (and including) found the character
+	 * belong to <code>untils</code>, or until EOF.
 	 */
-	public String getUntil(char upto) throws IOException {
+	public String getUntil(String untils) throws IOException {
 		final StringBuffer sb = new StringBuffer();
 		char quot = EOF;
 		for (char cc = skipWhitespaces(); cc != EOF; cc = _in.next()) {
@@ -171,7 +172,7 @@ import org.zkoss.zuss.metainfo.Operator;
 					if (cc == EOF) break;
 					sb.append(cc);
 				}
-			} else if (cc == upto) {
+			} else if (untils.indexOf(cc) >= 0) {
 				break;
 			}
 		}

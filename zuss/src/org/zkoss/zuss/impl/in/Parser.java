@@ -125,10 +125,10 @@ public class Parser {
 			return;
 		case CHARSET:
 		case IMPORT:
-			new RawValue(ctx.block.owner, "@import "+_in.getUntil(';')+'\n', kw.getLine());
+			new RawValue(ctx.block.owner, "@import "+_in.getUntil(";")+'\n', kw.getLine());
 			return;
 		case MEDIA:
-			String scope = _in.getUntil('{');
+			String scope = _in.getUntil("{");
 			if (!scope.endsWith("{"))
 				throw error("'{' expected", kw);
 			scope = scope.substring(0, scope.length() - 1);
@@ -342,11 +342,17 @@ public class Parser {
 			Token t0 = next(ctx);
 			if (t0 instanceof Symbol) {
 				if (((Symbol)t0).getValue() == ':') {
-					t0 = next(ctx);
-					if (!(t0 instanceof Other))
-						throw error("unexpected "+t0, t0);
-					defValue = ((Other)t0).getValue();
-					t0 = next(ctx);
+					final String s = _in.getUntil(",){");
+					final int len = s.length();
+					final char endcc;
+					if (len == 0
+					|| (endcc = s.charAt(len - 1)) != ',' && endcc != ')')
+						throw error("',' or ')' expected", t0.getLine());
+
+					defValue = s.substring(0, len - 1).trim();
+
+					if (endcc == ',') t0 = new Symbol(',', _in.getLine());
+					else t0 = new Op(RPAREN, _in.getLine());
 				}
 			}
 			if (t0 instanceof Symbol) {
