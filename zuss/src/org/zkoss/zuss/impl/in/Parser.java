@@ -412,7 +412,13 @@ public class Parser {
 				}
 				ops.add(0, new Op(COMMA, token.getLine()));
 				opExpected = false;
-			} else if (token instanceof Op) {
+				continue;
+			}
+			if (opExpected && (token instanceof Id || token instanceof Other)) {
+				putback(token);
+				token = new Op(CONCAT, token.getLine());
+			}
+			if (token instanceof Op) {
 				final Op op = (Op)token;
 				if (!opExpected) {
 					switch (op.getValue()) {

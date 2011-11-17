@@ -402,8 +402,7 @@ import org.zkoss.zuss.metainfo.Operator;
 		private boolean skipComment() throws IOException {
 			char cc = _next();
 			if (cc != '*') {
-				if (cc != EOF)
-					putback(cc);
+				putback(cc);
 				return false; //not a comment
 			}
 
@@ -413,6 +412,8 @@ import org.zkoss.zuss.metainfo.Operator;
 					cc = _next();
 					if (cc == '/')
 						return true; //comment skipped
+					if (cc == '*')
+						putback(cc);
 					if (cc == EOF)
 						break; //failed
 				}

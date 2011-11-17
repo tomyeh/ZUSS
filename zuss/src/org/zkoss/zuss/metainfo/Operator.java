@@ -40,8 +40,19 @@ public class Operator extends LeafInfo {
 	/** Types of the operators. */
 	public static enum Type {
 		//Follow Java's precedence: http://en.wikipedia.org/wiki/Order_of_operations
+		/** Concatenation. Represent the 'implied' operator if two consecutive
+		 * operands have no opearator in between.
+		 */
+		CONCAT(" ", 0) { //highest precedence
+			@Override
+			public Object invoke(Object... args) {
+				Object v1 = args[0], v2 = args[1];
+				return v1 != null ? v2 != null ? v1.toString() + ' ' + v2.toString():
+					v1: v2;
+			}
+		},
 		/** The negation. */
-		NEGATE( "-", 1, 2) {
+		NEGATE("-", 1, 2) { //unary
 			@Override
 			public Object invoke(Object... args) {
 				return Operators.negate(args[0]);

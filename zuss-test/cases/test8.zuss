@@ -1,0 +1,12 @@
+@border(@value: 1px solid blue) {
+	border: @value;
+}
+@width: 2px;
+@color: white;
+
+div.d1 {
+	@border(@width solid @color);
+}
+div.d2 {
+	@border();
+}
