@@ -13,12 +13,33 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 package org.zkoss.zuss.util;
 
 import java.util.Date;
+import java.util.Collection;
 
 /**
  * Class related utilities.
  * @author tomyeh
  */
 public class Classes {
+	/** Converts an object to a string that is meaningful to CSS.
+	 * It is used for generating the CSS content.
+	 */
+	public static String toString(Object val) {
+		if (val == null || val instanceof String)
+			return (String)val;
+		if (val instanceof Collection) {
+			final StringBuffer sb = new StringBuffer();
+			for (Object v: (Collection)val) {
+				final String s = toString(v);
+				if (s != null && s.length() > 0) {
+					if (sb.length() > 0) sb.append(' ');
+					sb.append(s);
+				}
+			}
+			return sb.toString();
+		}
+		return val.toString();
+	}
+
 	/** Converts an object to the specified class.
 	 * It is the same as coerce(cls, val, true).
 	 *
@@ -31,14 +52,14 @@ public class Classes {
 			return val;
 
 		if (String.class == cls) {
-			return val != null ? val.toString(): null;
+			return val != null ? toString(val): null;
 		} else if (Color.class == cls) {
 			if (val == null)
 				return null;
 			return val instanceof Number ? new Color(((Number)val).intValue()):
-				val != null ? Color.getColor(val.toString()): null;
+				val != null ? Color.getColor(toString(val)): null;
 		} else if (Size.class == cls) {
-			return val != null ? new Size(val.toString()): null;
+			return val != null ? new Size(toString(val)): null;
 		} else if (Integer.class == cls || int.class == cls) {
 			if (val == null) {
 				return Integer.class == cls ? null: 0;

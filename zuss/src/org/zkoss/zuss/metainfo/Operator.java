@@ -13,6 +13,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 package org.zkoss.zuss.metainfo;
 
 import org.zkoss.zuss.util.Operators;
+import org.zkoss.zuss.util.Classes;
 
 /**
  * Represents an operator.
@@ -47,7 +48,7 @@ public class Operator extends LeafInfo {
 			@Override
 			public Object invoke(Object... args) {
 				Object v1 = args[0], v2 = args[1];
-				return v1 != null ? v2 != null ? v1.toString() + ' ' + v2.toString():
+				return v1 != null ? v2 != null ? Classes.toString(v1) + ' ' + Classes.toString(v2):
 					v1: v2;
 			}
 		},

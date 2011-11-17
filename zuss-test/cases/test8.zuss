@@ -10,3 +10,8 @@ div.d1 {
 div.d2 {
 	@border();
 }
+
+@border(@width: 1px, @type: solid, @color: blue) {
+	border: @arguments;
+}
+@border();

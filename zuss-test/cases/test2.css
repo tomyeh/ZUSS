@@ -20,3 +20,15 @@ div.box2{
 div{
 	foo: a long 'strong' with ";
 }
+p:nth-child(4n+1){
+	color: navy;
+}
+p:nth-child(4n+2){
+	color: green;
+}
+p:nth-child(4n+3){
+	color: maroon;
+}
+p:nth-child(4n+4){
+	color: purple;
+}

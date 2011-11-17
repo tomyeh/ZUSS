@@ -20,3 +20,11 @@ div.box2 {border: @darken(@size, .3) solid blue;}
 
 @str: 'a long \'strong\' with "';
 div {foo: @str}
+
+@coloring(@c1: navy, @c2: green, @c3: maroon, @c4) {
+	p:nth-child(4n+1) { color: navy; }
+	p:nth-child(4n+2) { color: green; }
+	p:nth-child(4n+3) { color: maroon; }
+	p:nth-child(4n+4) { color: purple; }
+}
+@coloring();

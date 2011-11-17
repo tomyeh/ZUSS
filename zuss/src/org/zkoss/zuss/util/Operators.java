@@ -60,7 +60,7 @@ public class Operators {
 			return ((Number)val0).intValue() - ((Number)val1).intValue();
 		}
 		return val0 == null ? null: val1 == null ? val0:
-			val0.toString().replace(val1.toString(), "");
+			Classes.toString(val0).replace(Classes.toString(val1), "");
 	}
 	/** Multiplies the given values. */
 	public static Object multiply(Object val0, Object val1) {
@@ -123,7 +123,7 @@ public class Operators {
 			return v0 > v1 ? 1: v0 == v1 ? 0: -1;
 		}
 		return val0 != null ? val1 != null ?
-			val0.toString().compareTo(val1.toString()): 1: val1 != null ? -1: 0;
+			Classes.toString(val0).compareTo(Classes.toString(val1)): 1: val1 != null ? -1: 0;
 	}
 
 	/** Tests if the given object is true (i.e., non-null, not empty, not false). */

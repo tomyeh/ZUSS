@@ -12,10 +12,12 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.out;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.lang.reflect.Method;
 import java.io.Writer;
 import java.io.IOException;
@@ -100,7 +102,7 @@ public class Translator {
 			if (mixin == null)
 				throw error("only a mixin invocation is allowed", node);
 
-			final Scope subsc = new LocalScope(scope, mixin.argmap); //a local scope
+			final Scope subsc = new LocalScope(scope, mixin.argmap, mixin.argmap.values());
 			for (NodeInfo subnd: mixin.mixin.getChildren())
 				outRuleInner(subsc, outerSels, subnd, "", "", true);
 		} else {
@@ -157,7 +159,7 @@ public class Translator {
 					write(head);
 				}
 
-				final Scope subsc = new LocalScope(scope, mixin.argmap); //a local scope
+				final Scope subsc = new LocalScope(scope, mixin.argmap, mixin.argmap.values());
 				for (NodeInfo subnd: mixin.mixin.getChildren()) {
 					empty = outRuleInner(subsc, thisSels, subnd, head, end, empty);
 				}
@@ -169,7 +171,7 @@ public class Translator {
 						empty = false;
 						write(head);
 					}
-					write(o.toString());
+					write(Classes.toString(o));
 				}
 			}
 		} else if (node instanceof IfDefinition) { //in a rule
@@ -227,7 +229,7 @@ public class Translator {
 			final Object value = eval(scope, node);
 			if (value != null) {
 				write(' ');
-				write(value.toString());
+				write(Classes.toString(value));
 			}
 		}
 
@@ -349,7 +351,8 @@ public class Translator {
 		final Object value;
 		final Expression expr = fdef.getExpression();
 		if (expr != null) {
-			value = eval(new LocalScope(scope, getArgumentMap(adefs, args)), expr);
+			final Map<String, Object> argmap = getArgumentMap(adefs, args);
+			value = eval(new LocalScope(scope, argmap, argmap.values()), expr);
 				//a local scope for function invocation
 		} else {
 			final Method m = fdef.getMethod();
@@ -370,7 +373,7 @@ public class Translator {
 	}
 	private static Map<String, Object>
 	getArgumentMap(ArgumentDefinition[] adefs, Object[] args) {
-		final Map<String, Object> argmap = new HashMap<String, Object>();
+		final Map<String, Object> argmap = new LinkedHashMap<String, Object>(); //preserve order
 		for (int j = 0; j < adefs.length; ++j) {
 			argmap.put(adefs[j].getName(),
 				j < args.length ? args[j]: adefs[j].getDefaultValue());
@@ -461,8 +464,11 @@ public class Translator {
 				if (o != null || scope._vars.containsKey(name))
 					return o;
 			}
-			return _resolver != null ?
-				_resolver.getVariable(name): _builtin.getVariable(name);
+			if (_resolver != null) {
+				final Object o = _resolver.getVariable(name);
+				if (o != null) return o;
+			}
+			return _builtin.getVariable(name);
 		}
 		/** Returns {@link FunctionDefinition} or {@link MixinDefinition}
 		 * of the given name, or null if not exists.
@@ -483,9 +489,17 @@ public class Translator {
 	/** Represents a local scope used by the evaluation of mixin and function.
 	 */
 	private class LocalScope extends Scope {
-		private LocalScope(Scope parent, Map<String, Object> vars) {
+		private final Collection _args;
+		private LocalScope(Scope parent, Map<String, Object> vars, Collection args) {
 			super(parent instanceof LocalScope ? parent._parent: parent, vars);
 				//LocalScope's parent can not be another LocalScope
+			_args = args;
+		}
+		public Object getVariable(String name) {
+			final Object o = super.getVariable(name);
+			if (o != null)
+				return o;
+			return "arguments".equals(name) ? _args: null;
 		}
 	}
 }
