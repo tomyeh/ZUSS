@@ -40,7 +40,6 @@ import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.ConstantValue;
-import org.zkoss.zuss.metainfo.VariableValue;
 import org.zkoss.zuss.metainfo.Operator;
 import static org.zkoss.zuss.metainfo.Operator.Type.*;
 
@@ -49,6 +48,13 @@ import static org.zkoss.zuss.metainfo.Operator.Type.*;
  * @author tomyeh
  */
 public class Translator {
+	private static final Object NULL = new Object() {
+		@Override
+		public String toString() {
+			return "";
+		}
+	};
+
 	private final ZussDefinition _zuss;
 	private final Writer _out;
 	private final Resolver _resolver;
@@ -165,7 +171,7 @@ public class Translator {
 				}
 			} else {
 			//handle normal expression
-				final Object o = eval(scope, expr);
+				final Object o = evalExpression(scope, expr);
 				if (o != null) {
 					if (empty) {
 						empty = false;
@@ -197,12 +203,12 @@ public class Translator {
 	throws IOException {
 		final List<NodeInfo> exprList = expr.getChildren();
 		final int j;
-		final NodeInfo lastChild;
 		final FunctionValue fv;
-		final NodeInfo fn;
+		Object fn;
 		if ((j = exprList.size() - 1) >= 0
-		&& ((lastChild=exprList.get(j)) instanceof FunctionValue)
-		&& (fn = scope.getFunction((fv=(FunctionValue)lastChild).getName())) instanceof MixinDefinition) {
+		&& ((fn=exprList.get(j)) instanceof FunctionValue)
+		&& (fn = scope.getVariable((fv=(FunctionValue)fn).getName(), false))
+			instanceof MixinDefinition) {
 			List<Object> values = evalExpression(scope, exprList.subList(0, j));
 			return new MixinInfo((MixinDefinition)fn,
 				 getArgumentMap(
@@ -226,7 +232,7 @@ public class Translator {
 		write(':');
 
 		for (NodeInfo node: sdef.getChildren()) {
-			final Object value = eval(scope, node);
+			final Object value = evalNode(scope, node);
 			if (value != null) {
 				write(' ');
 				write(Classes.toString(value));
@@ -240,12 +246,14 @@ public class Translator {
 	private void outOther(Scope scope, List<String> outerSels, NodeInfo node) throws IOException {
 		if (node instanceof VariableDefinition) {
 			final VariableDefinition vdef = (VariableDefinition)node;
-			scope.setVariable(vdef.getName(), eval(scope, vdef));
+			scope.setVariable(vdef.getName(), evalDefinition(scope, vdef));
 				//spec: evaluate when it is defined (not when it is used)
 		} else if (node instanceof FunctionDefinition) {
-			scope.setFunction((FunctionDefinition)node);
+			final FunctionDefinition fd = (FunctionDefinition)node;
+			scope.setVariable(fd.getName(), fd);
 		} else if (node instanceof MixinDefinition) {
-			scope.setFunction((MixinDefinition)node);
+			final MixinDefinition fd = (MixinDefinition)node;
+			scope.setVariable(fd.getName(), fd);
 		} else if (node instanceof IfDefinition) { //assume not in a rule (outerSel shall be null)
 			for (NodeInfo child: node.getChildren()) {
 				final BlockDefinition block = (BlockDefinition)child;
@@ -268,24 +276,25 @@ public class Translator {
 		}
 	}
 
-	private Object eval(Scope scope, NodeInfo node) {
+	private Object evalNode(Scope scope, NodeInfo node) {
 		if (node instanceof ConstantValue)
 			return ((ConstantValue)node).getValue();
-		if (node instanceof VariableValue)
-			return eval(scope, (VariableValue)node);
-		else if (node instanceof Expression)
-			return eval(scope, (Expression)node); //must be value expression, not mixin
+		if (node instanceof FunctionValue)
+			return evalFunctionValue(scope, (FunctionValue)node, new Object[0]);
+		if (node instanceof Expression)
+			return evalExpression(scope, (Expression)node); //must be value expression, not mixin
 		throw error("unknown "+node, node);
 	}
 	/** @param expr it must be a value expression, not mixin. */
-	private Object eval(Scope scope, Expression expr) {
+	private Object evalExpression(Scope scope, Expression expr) {
 		final List<Object> values = evalExpression(scope, expr.getChildren());
 		if (values.size() != 1)
 			throw error("failed evaluate "+expr+": "+values, expr);
 		return values.get(0);
 	}
 	private boolean isTrue(Scope scope, Expression expr) {
-		final Boolean b = (Boolean)Classes.coerce(Boolean.class, eval(scope, expr));
+		final Boolean b = (Boolean)Classes.coerce(Boolean.class,
+			evalExpression(scope, expr));
 		return b != null && b.booleanValue();
 	}
 	private List<Object> evalExpression(Scope scope, List<NodeInfo> exprList) {
@@ -297,27 +306,32 @@ public class Translator {
 					values, opType.getArgumentNumber(), node.getLine())));
 			} else if (node instanceof FunctionValue) {
 				final FunctionValue fv = (FunctionValue)node;
-				final NodeInfo fn = scope.getFunction(fv.getName());
-				final int lineno = fv.getLine();
-				final Object[] args = getArguments(values, fv.getArgumentNumber(), lineno);
-				if (fn instanceof FunctionDefinition) {
-					values.add(eval(scope, (FunctionDefinition)fn, args, lineno));
-				} else if (fn instanceof MixinDefinition) {
-					throw error("Mixin not allowed, "+fn, lineno);
-				} else {
-					values.add(invoke(fv.getName(), args, lineno));
-				}
+				values.add(evalFunctionValue(scope, fv,
+					getArguments(values, fv.getArgumentNumber(), fv.getLine())));
 			} else {
-				values.add(eval(scope, node));
+				values.add(evalNode(scope, node));
 			}
 		}
 		return values;
 	}
-	/** Invokes a function. */
-	public Object invoke(String name, Object[] args, int lineno) {
+	private Object evalFunctionValue(Scope scope, FunctionValue fv, Object[] args) {
+		final Object o = scope.getVariable(fv.getName(), true); //NULL is expected
+		final int lineno = fv.getLine();
+		if (o instanceof MixinDefinition)
+			throw error("Mixin not allowed, "+o, lineno);
+		if (o instanceof FunctionDefinition)
+			return evalDefinition(scope, (FunctionDefinition)o, args, lineno);
+		if (o != null)
+			return o != NULL ? o: null;
+
+		//check if it is a method provided by the resolver
+		final String name = fv.getName();
 		final Method mtd = getMethod(name);
-		if (mtd == null)
+		if (mtd == null) {
+			if (fv.isVariableLook()) //parenthesis not specified
+				return null; //consider as null
 			throw error("Function not found: "+name, lineno);
+		}
 
 		int j = mtd.getParameterTypes().length;
 		if (args.length != j) { //if not enough, all others assume null
@@ -342,17 +356,17 @@ public class Translator {
 		}
 		return _builtin.getMethod(name);
 	}
-	private Object eval(Scope scope, VariableDefinition vdef) {
-		return eval(scope, vdef.getExpression());
+	private Object evalDefinition(Scope scope, VariableDefinition vdef) {
+		return evalExpression(scope, vdef.getExpression());
 	}
-	private Object eval(Scope scope, FunctionDefinition fdef, Object[] args,
+	private Object evalDefinition(Scope scope, FunctionDefinition fdef, Object[] args,
 	int lineno) {
 		final ArgumentDefinition[] adefs = fdef.getArgumentDefinitions();
 		final Object value;
 		final Expression expr = fdef.getExpression();
 		if (expr != null) {
 			final Map<String, Object> argmap = getArgumentMap(adefs, args);
-			value = eval(new LocalScope(scope, argmap, argmap.values()), expr);
+			value = evalExpression(new LocalScope(scope, argmap, argmap.values()), expr);
 				//a local scope for function invocation
 		} else {
 			final Method m = fdef.getMethod();
@@ -379,9 +393,6 @@ public class Translator {
 				j < args.length ? args[j]: adefs[j].getDefaultValue());
 		}
 		return argmap;
-	}
-	private Object eval(Scope scope, VariableValue vv) {
-		return scope.getVariable(vv.getName());
 	}
 	private Object[] getArguments(List<Object> values, int argc, int lineno) {
 		int sz = values.size();
@@ -411,9 +422,6 @@ public class Translator {
 	private class Scope {
 		private final Scope _parent;
 		private final Map<String, Object> _vars = new HashMap<String, Object>();
-		/** The value is an instanceof {@link FunctionDefinition} or {@link MuxinDefinition}.
-		 */
-		private final Map<String, NodeInfo> _funs = new HashMap<String, NodeInfo>();
 
 		private Scope(Scope parent) {
 			_parent = parent;
@@ -440,46 +448,25 @@ public class Translator {
 			}
 			_vars.put(name, value);
 		}
-		/** Stores a function definition. */
-		public void setFunction(FunctionDefinition fdef) {
-			setFunction(fdef.getName(), fdef);
-		}
-		public void setFunction(MixinDefinition mdef) {
-			setFunction(mdef.getName(), mdef);
-		}
-		private void setFunction(String name, NodeInfo node) {
-			for (Scope scope = this; scope != null; scope = scope._parent) {
-				if (scope._funs.containsKey(name)) {
-					scope._funs.put(name, node); //replace
-					return;
-				}
-			}
-			_funs.put(name, node);
-		}
 
-		/** Returns the variable value with the given name. */
-		public Object getVariable(String name) {
+		/** Returns the variable value with the given name.
+		 * Notice: the returned value could be FunctionDefinition or MixinDefinition.
+		 *
+		 * @param nullAware if true and the value is null, {@link #NULL} is returned.
+		 */
+		public Object getVariable(String name, boolean nullAware) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				final Object o = scope._vars.get(name);
 				if (o != null || scope._vars.containsKey(name))
-					return o;
+					return o != null || !nullAware ? o: NULL;
 			}
+
 			if (_resolver != null) {
 				final Object o = _resolver.getVariable(name);
-				if (o != null) return o;
+				if (o != null)
+					return o;
 			}
 			return _builtin.getVariable(name);
-		}
-		/** Returns {@link FunctionDefinition} or {@link MixinDefinition}
-		 * of the given name, or null if not exists.
-		 */
-		public NodeInfo getFunction(String name) {
-			for (Scope scope = this; scope != null; scope = scope._parent) {
-				final NodeInfo node = scope._funs.get(name);
-				if (node != null)
-					return node;
-			}
-			return null;
 		}
 		@Override
 		public String toString() {
@@ -495,8 +482,9 @@ public class Translator {
 				//LocalScope's parent can not be another LocalScope
 			_args = args;
 		}
-		public Object getVariable(String name) {
-			final Object o = super.getVariable(name);
+		@Override
+		public Object getVariable(String name, boolean nullAware) {
+			final Object o = super.getVariable(name, nullAware);
 			if (o != null)
 				return o;
 			return "arguments".equals(name) ? _args: null;

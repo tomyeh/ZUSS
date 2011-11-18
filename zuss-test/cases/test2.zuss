@@ -27,4 +27,4 @@ div {foo: @str}
 	p:nth-child(4n+3) { color: maroon; }
 	p:nth-child(4n+4) { color: purple; }
 }
-@coloring();
+@coloring;

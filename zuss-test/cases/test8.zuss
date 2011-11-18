@@ -1,3 +1,9 @@
+@foo {
+	border: 1px dotted yellow;
+}
+div {
+	@foo;
+}
 @border(@value: 1px solid blue) {
 	border: @value;
 }
@@ -8,10 +14,15 @@ div.d1 {
 	@border(@width solid @color);
 }
 div.d2 {
-	@border();
+	@border;
 }
 
 @border(@width: 1px, @type: solid, @color: blue) {
 	border: @arguments;
 }
-@border();
+@foo2 {
+	div {
+		@foo;
+	}
+}
+@foo2;

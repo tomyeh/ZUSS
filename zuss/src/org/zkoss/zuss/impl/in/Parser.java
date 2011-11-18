@@ -35,7 +35,6 @@ import org.zkoss.zuss.metainfo.BlockDefinition;
 import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.Expression;
 import org.zkoss.zuss.metainfo.ConstantValue;
-import org.zkoss.zuss.metainfo.VariableValue;
 import org.zkoss.zuss.metainfo.FunctionValue;
 import org.zkoss.zuss.metainfo.Operator;
 import static org.zkoss.zuss.metainfo.Operator.Type.*;
@@ -47,7 +46,8 @@ import static org.zkoss.zuss.impl.in.Keyword.Value.*;
  * @author tomyeh
  */
 public class Parser {
-	private static final char EOF = (char)0;
+	private static final char EOF = (char)0,
+		EOPAREN = (char)1; //end-of-parenthesis
 
 	private final Tokenizer _in;
 	private final Locator _loc;
@@ -205,7 +205,9 @@ public class Parser {
 		parseId0(ctx, id);
 		ctx.block.tokenizerMode = old;
 	}
-	private void parseId0(Context ctx, Id id) throws IOException {
+	private void parseId0(Context ctx, final Id id) throws IOException {
+		final String name = id.getValue();
+		final int lineno = id.getLine();
 		Token t0 =  next(ctx);
 		if (t0 instanceof Symbol) {
 			final char symbol = ((Symbol)t0).getValue();
@@ -214,7 +216,16 @@ public class Parser {
 					//note: expr is NOT a child of any node but part of VariableDefinition below
 				parseExpression(ctx, expr, ';');
 				new VariableDefinition(
-					ctx.block.owner, id.getValue(), expr, id.getLine());
+					ctx.block.owner, name, expr, lineno);
+				return;
+			} else if (symbol == '{') { //mixin definition
+				newBlock(ctx, new MixinDefinition(
+					ctx.block.owner, name,
+					new ArgumentDefinition[0], lineno));
+				return;
+			} else if (symbol == ';') { //use of function/mixin
+				Expression expr = new Expression(ctx.block.owner, lineno);
+				new FunctionValue(expr, name, lineno); //no parenthesis
 				return;
 			}
 		} else if (t0 instanceof Op && ((Op)t0).getValue() == LPAREN) {
@@ -224,7 +235,7 @@ public class Parser {
 			if (cc == ';' || cc == '}' || cc == EOF) { //use of function/mixin
 				putback(t0);
 				putback(id);
-				parseExpression(ctx, new Expression(ctx.block.owner, id.getLine()), EOF);
+				parseExpression(ctx, new Expression(ctx.block.owner, lineno), EOPAREN);
 
 				t0 = next(ctx);
 				if (t0 instanceof Symbol) {
@@ -253,10 +264,10 @@ public class Parser {
 						nextAndCheck(ctx, ';', true);
 
 						final Method mtd = Classes.getMethod(
-							((Other)t0).getValue(), id.getValue(), adefs.length,
+							((Other)t0).getValue(), name, adefs.length,
 							getFilename(), t0.getLine());
 						new FunctionDefinition(
-							ctx.block.owner, id.getValue(), adefs, mtd, id.getLine());
+							ctx.block.owner, name, adefs, mtd, lineno);
 						return;
 					} else {
 						putback(t1);
@@ -264,12 +275,12 @@ public class Parser {
 							//note: expr is NOT a child of any node but part of VariableDefinition below
 						parseExpression(ctx, expr, ';');
 						new FunctionDefinition(
-							ctx.block.owner, id.getValue(), adefs, expr, id.getLine());
+							ctx.block.owner, name, adefs, expr, lineno);
 						return;
 					}
 				} else if (symbol == '{') { //mixin
 					newBlock(ctx, new MixinDefinition(
-						ctx.block.owner, id.getValue(), adefs, id.getLine()));
+						ctx.block.owner, name, adefs, lineno));
 					return;
 				}
 			}
@@ -316,10 +327,10 @@ public class Parser {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation
 					putback(token);
-					parseExpression(ctx, new Expression(sdef, token.getLine()), EOF);
+					parseExpression(ctx, new Expression(sdef, token.getLine()), EOPAREN);
 						//note: the expression is a child of sdef
 				} else {
-					new VariableValue(sdef, ((Id)token).getValue(), token.getLine());
+					new FunctionValue(sdef, ((Id)token).getValue(), token.getLine()); //no parenthesis
 				}
 			}
 		}
@@ -373,7 +384,7 @@ public class Parser {
 
 	/**
 	 * @param endcc the character to denote the end of the expression.
-	 * If EOF, it means it is parsing @f(...) and it ends with the last ')'.
+	 * If EOPAREN, it means it is parsing @fn(...) and it ends with the last ')'.
 	 */
 	private void parseExpression(Context ctx, Expression expr, final char endcc)
 	throws IOException {
@@ -393,7 +404,7 @@ public class Parser {
 					break; //done
 				if (endcc == EOF && (cc == ';' || cc == '}')) {
 					putback(token);
-					break;
+					break; //done
 				}
 				if (cc != ',')
 					throw error("unexpected "+token, token);
@@ -451,7 +462,7 @@ public class Parser {
 							new Operator(expr, xop.getValue(), xop.getLine());
 						}
 					}
-					if (endcc == EOF && ops.isEmpty())
+					if (endcc == EOPAREN && ops.isEmpty())
 						break; //done
 					continue; //next token
 				} else if (op.getValue() == LPAREN)
@@ -478,13 +489,15 @@ public class Parser {
 					Token t = next(ctx);
 					if (!(t instanceof Op) || ((Op)t).getValue() != LPAREN) {
 						putback(t);
-						new VariableValue(expr, nm, token.getLine());
+						new FunctionValue(expr, nm, token.getLine()); //no parenthesis
 					} else { //function invocation
 						t = next(ctx);
 						if (t instanceof Op && ((Op)t).getValue() == RPAREN) {
 							//handle no arg invocation special, since it is not easy
 							//to tell the difference between f(a) vs. f()
-							new FunctionValue(expr, nm, 0, token.getLine());
+							new FunctionValue(expr, nm, 0, token.getLine()); //empty parenthesis
+							if (endcc == EOPAREN && ops.isEmpty())
+								break; //done
 						} else {
 							putback(t);
 							ops.add(0, new Op(FUNC, nm, token.getLine())); //pass name as op's data

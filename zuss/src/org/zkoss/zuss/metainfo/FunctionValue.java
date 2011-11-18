@@ -20,6 +20,7 @@ public class FunctionValue extends LeafInfo {
 	private final String _name;
 	/** The number of arugments. */
 	private final int _argc;
+	private final boolean _varLook;
 
 	/**
 	 * @param argc the number of arguments
@@ -28,6 +29,16 @@ public class FunctionValue extends LeafInfo {
 		super(parent, lineno);
 		_name = name;
 		_argc = argc;
+		_varLook = false;
+	}
+	/** Construct a function invocation that isn't specified with a pair of
+	 * parenthesis.
+	 */
+	public FunctionValue(NodeInfo parent, String name, int lineno) {
+		super(parent, lineno);
+		_name = name;
+		_argc = 0;
+		_varLook = true;
 	}
 	/** Returns the variable's name.
 	 */
@@ -38,6 +49,12 @@ public class FunctionValue extends LeafInfo {
 	 */
 	public int getArgumentNumber() {
 		return _argc;
+	}
+	/** Returns if this function invocation is not specified with a pair of
+	 * parenthesis.
+	 */
+	public boolean isVariableLook() {
+		return _varLook;
 	}
 
 	@Override
