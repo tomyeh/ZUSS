@@ -71,7 +71,24 @@ public class RequestResolver implements Resolver {
 			if (ua.indexOf("compatible") < 0) {
 				m = _rmozilla.matcher(ua);
 				if (m.matches()) {
-					final double version = getVersion(m);
+					double version = getVersion(m);
+					if (version < 5) { //http://www.useragentstring.com/_uas_Firefox_version_5.0.php
+						int j = ua.indexOf("firefox/");
+						if (j >= 0) {
+							int k = ua.indexOf('.', j += 8);
+							if (k >= 0) {
+								for (int len = ua.length(); ++k < len;) {
+									final char cc = ua.charAt(k);
+									if (cc < '0' || cc > '9')
+										break;
+								}
+								try {
+									version = Double.parseDouble(ua.substring(j, k));
+								} catch (Throwable ex) {
+								}
+							}
+						}
+					}
 					_vars.put("gecko", version);
 					_vars.put("ff", version);
 					return;
