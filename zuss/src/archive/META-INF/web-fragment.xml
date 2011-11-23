@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- web-fragment.xml
+	Purpose:
+		
+	Description:
+		
+	History:
+		Wed Nov 23 14:10:47 TST 2011, Created by tomyeh
+
+Copyright (C) 2011 Potix Corporation. All Rights Reserved.
+-->
+
+<web-fragment>
+	<name>zuss</name>
+
+	<servlet>
+	    <servlet-name>ZussServlet</servlet-name>
+	    <servlet-class>org.zkoss.zuss.ZussServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+	    <servlet-name>ZussServlet</servlet-name>
+	    <url-pattern>*.zuss</url-pattern>
+	</servlet-mapping>
+
+	<mime-mapping>
+		<extension>zuss</extension>
+		<mime-type>text/css</mime-type>
+	</mime-mapping>
+</web-fragment>
