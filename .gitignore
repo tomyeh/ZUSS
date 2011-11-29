@@ -1,0 +1,6 @@
+.svn
+debug
+codegen
+javadoc
+*.local
+Thumbs.db
