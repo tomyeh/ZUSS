@@ -327,7 +327,7 @@ public class Parser {
 					putback(token);
 					break; //done
 				}
-				if (symbol != ',' && symbol != '(' && symbol != ')')
+				if (",()+-*/".indexOf(symbol) < 0)
 					throw error("unexpected '" + symbol + '\'', token);
 				new ConstantValue(sdef, "" + symbol, token.getLine());
 			} else if (token instanceof Id) {
