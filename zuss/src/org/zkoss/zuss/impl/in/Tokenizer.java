@@ -263,11 +263,11 @@ import org.zkoss.zuss.metainfo.Operator;
 				_in.putback(cc);
 				return new Other(sb.toString().trim(), lineno);
 
-			} else if (cc == ',' || cc == '{') {
+			} else if (mode != Mode.STYLE_VALUE && (cc == ',' || cc == '{')) {
 				_in.putback(cc);
 				return new Selector(sb.toString().trim(), lineno);
 
-			} else if (cc == ':' ) {
+			} else if (mode != Mode.STYLE_VALUE && cc == ':' ) {
 				//a colon might appear in a selector or a separator for name/value
 				//	a:hover {background:blue;}
 				//we consider it selector if it follows by , or {
@@ -435,6 +435,6 @@ import org.zkoss.zuss.metainfo.Operator;
 		}
 	}
 	/*package*/ static enum Mode {
-		DEFAULT, EXPRESSION, SYMBOL
+		DEFAULT, EXPRESSION, SYMBOL, STYLE_VALUE
 	};
 }

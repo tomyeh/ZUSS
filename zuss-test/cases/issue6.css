@@ -1,0 +1,9 @@
+div{
+	background: -o-linear-gradient(orange, pink);
+}
+p{
+	background: -o-linear-gradient( green , pink);
+}
+h1{
+	background: -o-linear-gradient( green , blue );
+}

@@ -309,7 +309,12 @@ public class Parser {
 
 	private void parseStyle(Context ctx, Other name) throws IOException {
 		nextAndCheck(ctx, ':', false);
-
+		final Tokenizer.Mode old = ctx.block.tokenizerMode;
+		ctx.block.tokenizerMode = Tokenizer.Mode.STYLE_VALUE;
+		parseStyleValue(ctx, name);
+		ctx.block.tokenizerMode = old;
+	}
+	private void parseStyleValue(Context ctx, Other name) throws IOException {
 		StyleDefinition sdef = new StyleDefinition(ctx.block.owner, name.getValue(), name.getLine());
 		for (Token token; (token = next(ctx)) != null;) {
 			if (token instanceof Other) {
@@ -322,7 +327,9 @@ public class Parser {
 					putback(token);
 					break; //done
 				}
-				throw error("unexpected '" + symbol + '\'', token);
+				if (symbol != ',' && symbol != '(' && symbol != ')')
+					throw error("unexpected '" + symbol + '\'', token);
+				new ConstantValue(sdef, "" + symbol, token.getLine());
 			} else if (token instanceof Id) {
 				//handle @xx or @xxx()
 				if (_in.peek() == '(') { //a function invocation

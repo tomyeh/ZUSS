@@ -1,14 +1,14 @@
 #!/bin/bash
 
 cp=$0
-if [ "$TERM" = "cygwin" ] ; then
+if [ "$TERM" = "cygwin" ] || [ "$OSTYPE" = "cygwin" ] ; then
 	cp=$(cygpath -u $cp)
 fi
 cp=${cp%/*}
 
 if [ $# = 0 ] ; then
 	cd $cp
-	for f in cases/test*.zuss; do
+	for f in cases/test*.zuss cases/issue*.zuss; do
 		fcss=${f#*/}
 		echo check $fcss
 		fcss=${fcss%.zuss}.css

@@ -91,14 +91,20 @@ public class Operator extends LeafInfo {
 		EQ("==", 7) {
 			@Override
 			public Object invoke(Object... args) {
-				return Operators.equals(args[0], args[1]);
+				return args[0] == args[1] //including both null
+				|| (args[0] != null && args[1] != null
+					&& Operators.equals(args[0], args[1]));
+					//0 != null => false
 			}
 		},
 		/** Not equals. */
 		NE("!=", 7) {
 			@Override
 			public Object invoke(Object... args) {
-				return !Operators.equals(args[0], args[1]);
+				return args[0] != args[1]
+				&& (args[0] == null || args[1] == null
+					|| !Operators.equals(args[0], args[1]));
+					//0 != null => true
 			}
 		},
 		/** The OR oeprator. */
@@ -119,28 +125,37 @@ public class Operator extends LeafInfo {
 		GT(">", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Operators.compare(args[0], args[1]) > 0;
+				return args[0] != null && args[1] != null
+					&& Operators.compare(args[0], args[1]) > 0;
+					//null > 9 => false
 			}
 		},
 		/** Less than. */
 		LT("<", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Operators.compare(args[0], args[1]) < 0;
+				return args[0] != null && args[1] != null
+					&& Operators.compare(args[0], args[1]) < 0;
+					//null < 9 => false
 			}
 		},
 		/** Greater than or equals. */
 		GE(">=", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Operators.compare(args[0], args[1]) >= 0;
+				return args[0] == args[1] //including both null
+				|| (args[0] != null && args[1] != null
+					&& Operators.compare(args[0], args[1]) >= 0);
+					//null <= 9 => false
 			}
 		},
 		/** Less than or equals. */
 		LE("<=", 6) {
 			@Override
 			public Object invoke(Object... args) {
-				return Operators.compare(args[0], args[1]) <= 0;
+				return args[0] == args[1] //including both null
+				|| (args[0] != null && args[1] != null
+					&& Operators.compare(args[0], args[1]) <= 0);
 			}
 		},
 		/** Left parenthesis, '('. Not a real operator but for parsing purpose. */

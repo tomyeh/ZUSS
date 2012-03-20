@@ -1,0 +1,19 @@
+@color1: green;
+@color2: blue;
+
+div {
+	background: -o-linear-gradient(orange, pink);
+}
+p {
+	background: -o-linear-gradient(@color1, pink);
+}
+h1 {
+	background: -o-linear-gradient(@color1, @color2);
+}
+
+@if (@ie < 9) {
+ .shadow {
+    background: #888; zoom: 1; display: none;
+    filter: progid:DXImageTransform.Microsoft.Blur(PixelRadius=4, MakeShadow=true, ShadowOpacity=0.30)
+ }
+}

@@ -65,7 +65,9 @@ public class RequestResolver implements Resolver {
 			}
 			m = _rmsie.matcher(ua);
 			if (m.matches()) {
-				_vars.put("ie", getVersion(m));
+				final double version = getVersion(m);
+				_vars.put("msie", version);
+				_vars.put("ie", version);
 				return;
 			}
 			if (ua.indexOf("compatible") < 0) {
@@ -89,6 +91,7 @@ public class RequestResolver implements Resolver {
 							}
 						}
 					}
+					_vars.put("mozilla", version);
 					_vars.put("gecko", version);
 					_vars.put("ff", version);
 					return;
