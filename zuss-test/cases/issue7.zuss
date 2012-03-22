@@ -1,0 +1,9 @@
+a:after {
+	content: " (" attr(href) ") ";
+}
+
+@before: "\" [ \"";
+@after: "\" ] \"";
+a:after {
+	content: @before attr(href) @after;
+}

@@ -1,0 +1,6 @@
+a:after{
+	content: " (" attr(href) ") ";
+}
+a:after{
+	content: " [ " attr(href) " ] ";
+}

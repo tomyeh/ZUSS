@@ -236,7 +236,7 @@ import org.zkoss.zuss.metainfo.Operator;
 			}
 
 		//non-expression
-		char quot = EOF;
+		char quot = cc == '\'' || cc == '"' ? cc: EOF;
 		int strlineno = 0;
 		for (;;) {
 			cc = _in.next();
