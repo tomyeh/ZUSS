@@ -12,11 +12,12 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.util;
 
-import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.HashMap;
+
 import javax.servlet.http.HttpServletRequest;
 
 import org.zkoss.zuss.Resolver;
@@ -81,8 +82,9 @@ public class RequestResolver implements Resolver {
 							if (k >= 0) {
 								for (int len = ua.length(); ++k < len;) {
 									final char cc = ua.charAt(k);
-									if (cc < '0' || cc > '9')
-										break;
+									if (cc < '0' || cc > '9') {
+                                        break;
+                                    }
 								}
 								try {
 									version = Double.parseDouble(ua.substring(j, k));
@@ -101,14 +103,17 @@ public class RequestResolver implements Resolver {
 	}
 	private static double getVersion(Matcher m) {
 		if (m.groupCount() < 2)
-			return 1; //ignore it
+         {
+            return 1; //ignore it
+        }
 
 		String version = m.group(2);
 		int j = version.indexOf('.');
 		if (j >= 0) {
 			j = version.indexOf('.', j + 1);
-			if (j >= 0)
-				version = version.substring(0, j);
+			if (j >= 0) {
+                version = version.substring(0, j);
+            }
 		}
 		try {
 			return Double.parseDouble(version);
@@ -119,18 +124,23 @@ public class RequestResolver implements Resolver {
 
 	@Override
 	public Object getVariable(String name) {
-		if ("request".equals(name))
-			return _request;
+		if ("request".equals(name)) {
+            return _request;
+        }
 		Object o = _request.getAttribute(name);
-		if (o != null)
-			return o;
+		if (o != null) {
+            return o;
+        }
 		o = _request.getParameter(name);
-		if (o != null)
-			return o;
+		if (o != null) {
+            return o;
+        }
 		return _vars.get(name);
 	}
-	@Override
-	public Method getMethod(String name) {
-		return null;
-	}
-}
+
+        @Override
+        public Callable<Object> getMethod(String name, Object[] args) {
+            // no more methods to provide
+            return null;
+        }
+    }

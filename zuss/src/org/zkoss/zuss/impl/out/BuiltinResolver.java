@@ -12,9 +12,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.out;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.lang.reflect.Method;
+import java.util.concurrent.Callable;
 
 import org.zkoss.zuss.Resolver;
 import org.zkoss.zuss.ZussException;
@@ -24,29 +22,27 @@ import org.zkoss.zuss.ZussException;
  * @author tomyeh
  */
 public class BuiltinResolver implements Resolver {
-	private final Map<String, Method> _funcs = new HashMap<String, Method>();
 
-	public BuiltinResolver() {
-		try {
-			final Class<?> cls = BuiltinResolver.class;
-			_funcs.put("eval",
-				cls.getMethod("eval", new Class[] {Object.class}));
-		} catch (NoSuchMethodException ex) {
-			throw new ZussException(ex);
-		}
-	}
 
 	@Override
 	public Object getVariable(String name) {
 		return null;
 	}
+	
 	@Override
-	public Method getMethod(String name) {
-		return _funcs.get(name);
+	public Callable<Object> getMethod(String name, final Object[] args) {
+	    if ("eval".equals(name)) {
+        	    if (args.length != 1) {
+        	        throw new ZussException("invalid count of arguments to method eval");
+        	    }
+        	    return new Callable<Object>() {
+
+                    @Override
+                    public Object call() throws Exception {
+                        return args[0];
+                    }};
+	    }
+	    return null;
 	}
-	/** eval(Object val).
-	 */
-	public static Object eval(Object val) {
-		return val;
-	}
+	
 }
