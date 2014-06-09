@@ -12,36 +12,36 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss.impl.out;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.Method;
 import java.util.Collection;
-import java.util.List;
-import java.util.LinkedList;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.lang.reflect.Method;
-import java.io.Writer;
-import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.zkoss.zuss.Resolver;
 import org.zkoss.zuss.ZussException;
-import org.zkoss.zuss.util.Classes;
+import org.zkoss.zuss.metainfo.ArgumentDefinition;
+import org.zkoss.zuss.metainfo.BlockDefinition;
+import org.zkoss.zuss.metainfo.ConstantValue;
+import org.zkoss.zuss.metainfo.Expression;
+import org.zkoss.zuss.metainfo.FunctionDefinition;
+import org.zkoss.zuss.metainfo.FunctionValue;
+import org.zkoss.zuss.metainfo.IfDefinition;
+import org.zkoss.zuss.metainfo.MediaDefinition;
+import org.zkoss.zuss.metainfo.MixinDefinition;
 import org.zkoss.zuss.metainfo.NodeInfo;
-import org.zkoss.zuss.metainfo.ZussDefinition;
+import org.zkoss.zuss.metainfo.Operator;
+import org.zkoss.zuss.metainfo.RawValue;
 import org.zkoss.zuss.metainfo.RuleDefinition;
 import org.zkoss.zuss.metainfo.StyleDefinition;
 import org.zkoss.zuss.metainfo.VariableDefinition;
-import org.zkoss.zuss.metainfo.FunctionDefinition;
-import org.zkoss.zuss.metainfo.MediaDefinition;
-import org.zkoss.zuss.metainfo.MixinDefinition;
-import org.zkoss.zuss.metainfo.ArgumentDefinition;
-import org.zkoss.zuss.metainfo.IfDefinition;
-import org.zkoss.zuss.metainfo.BlockDefinition;
-import org.zkoss.zuss.metainfo.RawValue;
-import org.zkoss.zuss.metainfo.Expression;
-import org.zkoss.zuss.metainfo.FunctionValue;
-import org.zkoss.zuss.metainfo.ConstantValue;
-import org.zkoss.zuss.metainfo.Operator;
-import static org.zkoss.zuss.metainfo.Operator.Type.*;
+import org.zkoss.zuss.metainfo.ZussDefinition;
+import org.zkoss.zuss.util.Classes;
 
 /**
  * The translator used to translate ZUSS to CSS.
@@ -92,8 +92,9 @@ public class Translator {
 
 	private void outChildren(Scope scope, List<String> outerSels, NodeInfo node)
 	throws IOException {
-		for (NodeInfo child: node.getChildren())
-			outNode(scope, outerSels, child);
+		for (NodeInfo child: node.getChildren()) {
+            outNode(scope, outerSels, child);
+        }
 	}
 	private void outNode(Scope scope, List<String> outerSels, NodeInfo node)
 	throws IOException {
@@ -105,12 +106,14 @@ public class Translator {
 		//here must be a mixin, since outChildren is called at the same level
 		//as rules (such as at top-level or in @media)
 			final MixinInfo mixin = getMixinInfo(scope, (Expression)node);
-			if (mixin == null)
-				throw error("only a mixin invocation is allowed", node);
+			if (mixin == null) {
+                throw error("only a mixin invocation is allowed", node);
+            }
 
 			final Scope subsc = new LocalScope(scope, mixin.argmap, mixin.argmap.values());
-			for (NodeInfo subnd: mixin.mixin.getChildren())
-				outRuleInner(subsc, outerSels, subnd, "", "", true);
+			for (NodeInfo subnd: mixin.mixin.getChildren()) {
+                outRuleInner(subsc, outerSels, subnd, "", "", true);
+            }
 		} else {
 			outOther(scope, outerSels, node);
 		}
@@ -127,19 +130,23 @@ public class Translator {
 			thisSels = rdef.getSelectors();
 		} else {
 			thisSels = new LinkedList<String>();
-			for (String s: rdef.getSelectors())
-				for (String os: outerSels)
-					thisSels.add(s.startsWith("&") ? os + s.substring(1): os + ' ' + s);
+			for (String s: rdef.getSelectors()) {
+                for (String os: outerSels) {
+                    thisSels.add(s.startsWith("&") ? os + s.substring(1): os + ' ' + s);
+                }
+            }
 		}
 
 		final String head = cat(thisSels) + "{\n", end = "}\n";
 		boolean empty = true;
 
-		for (NodeInfo node: rdef.getChildren())
-			empty = outRuleInner(scope, thisSels, node, head, end, empty);
+		for (NodeInfo node: rdef.getChildren()) {
+            empty = outRuleInner(scope, thisSels, node, head, end, empty);
+        }
 
-		if (!empty)
-			write(end);
+		if (!empty) {
+            write(end);
+        }
 	}
 	private boolean outRuleInner(Scope scope, List<String> thisSels,
 	NodeInfo node, String head, String end, boolean empty)
@@ -277,19 +284,24 @@ public class Translator {
 	}
 
 	private Object evalNode(Scope scope, NodeInfo node) {
-		if (node instanceof ConstantValue)
-			return ((ConstantValue)node).getValue();
-		if (node instanceof FunctionValue)
-			return evalFunctionValue(scope, (FunctionValue)node, new Object[0]);
+		if (node instanceof ConstantValue) {
+            return ((ConstantValue)node).getValue();
+        }
+		if (node instanceof FunctionValue) {
+            return evalFunctionValue(scope, (FunctionValue)node, new Object[0]);
+        }
 		if (node instanceof Expression)
-			return evalExpression(scope, (Expression)node); //must be value expression, not mixin
+         {
+            return evalExpression(scope, (Expression)node); //must be value expression, not mixin
+        }
 		throw error("unknown "+node, node);
 	}
 	/** @param expr it must be a value expression, not mixin. */
 	private Object evalExpression(Scope scope, Expression expr) {
 		final List<Object> values = evalExpression(scope, expr.getChildren());
-		if (values.size() != 1)
-			throw error("failed evaluate "+expr+": "+values, expr);
+		if (values.size() != 1) {
+            throw error("failed evaluate "+expr+": "+values, expr);
+        }
 		return values.get(0);
 	}
 	private boolean isTrue(Scope scope, Expression expr) {
@@ -317,44 +329,40 @@ public class Translator {
 	private Object evalFunctionValue(Scope scope, FunctionValue fv, Object[] args) {
 		final Object o = scope.getVariable(fv.getName(), true); //NULL is expected
 		final int lineno = fv.getLine();
-		if (o instanceof MixinDefinition)
-			throw error("Mixin not allowed, "+o, lineno);
-		if (o instanceof FunctionDefinition)
-			return evalDefinition(scope, (FunctionDefinition)o, args, lineno);
-		if (o != null)
-			return o != NULL ? o: null;
+		if (o instanceof MixinDefinition) {
+            throw error("Mixin not allowed, "+o, lineno);
+        }
+		if (o instanceof FunctionDefinition) {
+            return evalDefinition(scope, (FunctionDefinition)o, args, lineno);
+        }
+		if (o != null) {
+            return o != NULL ? o: null;
+        }
 
 		//check if it is a method provided by the resolver
 		final String name = fv.getName();
-		final Method mtd = getMethod(name);
+		final Callable<Object> mtd = getMethod(name, args);
 		if (mtd == null) {
-			if (fv.isVariableLook()) //parenthesis not specified
-				return null; //consider as null
+			if (fv.isVariableLook())
+             {
+                return null; //consider as null
+            }
 			throw error("Function not found: "+name, lineno);
 		}
-
-		int j = mtd.getParameterTypes().length;
-		if (args.length != j) { //if not enough, all others assume null
-			final Object[] as = args;
-			args = new Object[j];
-			if (j > as.length)
-				j = as.length;
-			while (--j >= 0)
-				args[j] = as[j];
-		}
 		try {
-			return mtd.invoke(null, args);
+			return mtd.call();
 		} catch (Exception ex) {
 			throw error("Unable to invoke "+mtd, lineno, ex);
 		}
 	}
-	private Method getMethod(String name) {
+	private Callable<Object> getMethod(String name, Object[] args) {
 		if (_resolver != null) {
-			final Method mtd = _resolver.getMethod(name);
-			if (mtd != null)
-				return mtd;
+			final Callable<Object> mtd = _resolver.getMethod(name, args);
+			if (mtd != null) {
+                            return mtd;
+                        }
 		}
-		return _builtin.getMethod(name);
+		return _builtin.getMethod(name, args);
 	}
 	private Object evalDefinition(Scope scope, VariableDefinition vdef) {
 		return evalExpression(scope, vdef.getExpression());
@@ -372,11 +380,13 @@ public class Translator {
 			final Method m = fdef.getMethod();
 			final Class<?>[] argTypes = m.getParameterTypes();
 			final Object[] as = args;
-			if (args.length != argTypes.length)
-				args = new Object[argTypes.length];
-			for (int j = 0; j < argTypes.length; ++j)
-				args[j] = Classes.coerce(argTypes[j],
+			if (args.length != argTypes.length) {
+                args = new Object[argTypes.length];
+            }
+			for (int j = 0; j < argTypes.length; ++j) {
+                args[j] = Classes.coerce(argTypes[j],
 					j < as.length ? as[j]: adefs[j].getDefaultValue());
+            }
 			try {
 				value = m.invoke(null, args);
 			} catch (Throwable ex) {
@@ -396,11 +406,13 @@ public class Translator {
 	}
 	private Object[] getArguments(List<Object> values, int argc, int lineno) {
 		int sz = values.size();
-		if (sz < argc)
-			throw error("Not enough argument: "+sz, lineno);
+		if (sz < argc) {
+            throw error("Not enough argument: "+sz, lineno);
+        }
 		final Object[] args = new Object[argc];
-		while ( --argc >= 0)
-			args[argc] = values.remove(--sz);
+		while ( --argc >= 0) {
+            args[argc] = values.remove(--sz);
+        }
 		return args;
 	}
 
@@ -413,7 +425,9 @@ public class Translator {
 	private static String cat(List<String> list) {
 		final StringBuffer sb = new StringBuffer();
 		for (String s: list) {
-			if (sb.length() > 0) sb.append(',');
+			if (sb.length() > 0) {
+                sb.append(',');
+            }
 			sb.append(s);
 		}
 		return sb.toString();
@@ -457,14 +471,16 @@ public class Translator {
 		public Object getVariable(String name, boolean nullAware) {
 			for (Scope scope = this; scope != null; scope = scope._parent) {
 				final Object o = scope._vars.get(name);
-				if (o != null || scope._vars.containsKey(name))
-					return o != null || !nullAware ? o: NULL;
+				if (o != null || scope._vars.containsKey(name)) {
+                    return o != null || !nullAware ? o: NULL;
+                }
 			}
 
 			if (_resolver != null) {
 				final Object o = _resolver.getVariable(name);
-				if (o != null)
-					return o;
+				if (o != null) {
+                    return o;
+                }
 			}
 			return _builtin.getVariable(name);
 		}
@@ -485,8 +501,9 @@ public class Translator {
 		@Override
 		public Object getVariable(String name, boolean nullAware) {
 			final Object o = super.getVariable(name, nullAware);
-			if (o != null)
-				return o;
+			if (o != null) {
+                return o;
+            }
 			return "arguments".equals(name) ? _args: null;
 		}
 	}

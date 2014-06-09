@@ -12,7 +12,7 @@ Copyright (C) 2011 Potix Corporation. All Rights Reserved.
 */
 package org.zkoss.zuss;
 
-import java.lang.reflect.Method;
+import java.util.concurrent.Callable;
 
 /**
  * Custom variable and function resolver.
@@ -24,5 +24,5 @@ public interface Resolver {
 	public Object getVariable(String name);
 	/** Returns the method of the given name, or null if not available.
 	 */
-	public Method getMethod(String name);
+	public Callable<Object> getMethod(String name, Object[] args);
 }
