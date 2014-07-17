@@ -332,6 +332,8 @@ import org.zkoss.zuss.metainfo.Operator;
 			return new Keyword(Keyword.Value.IMPORT, getLine());
 		if ("media".equals(nm))
 			return new Keyword(Keyword.Value.MEDIA, getLine());
+		if ("font-face".equals(nm))
+                    return new Keyword(Keyword.Value.FONTFACE, getLine());
 		return new Id(nm, getLine());
 	}
 	private Token asString(char quot) throws IOException {
