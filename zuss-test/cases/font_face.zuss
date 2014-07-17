@@ -1,0 +1,49 @@
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('../../fonts/pt_sans/PT_Sans-Web-Regular.eot'); /* EOT file for IE */
+  src: local('PT Sans'), local('PTSans-Regular'), url('../../fonts/pt_sans/PT_Sans-Web-Regular.ttf') format("truetype"); /*CSS3 Browser*/
+}
+
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-weight: 700;
+  src: url('../../fonts/pt_sans/PT_Sans-Web-Bold.eot'); /* EOT file for IE */
+  src: local('PT Sans Bold'), local('PTSans-Bold'), url('../../fonts/pt_sans/PT_Sans-Web-Bold.ttf') format("truetype");
+}
+
+@nice_grey: #5B5B5B;
+@darken(@color, @diff: 10%): @color * (1 - @diff);
+ 
+div {
+  color: @darken(@nice_grey);
+}
+
+.bordered {
+  &.float {
+    float: left;
+  }
+  .top {
+    margin: 5px;
+  }
+}
+
+@border_radious(@radius: 4px) {
+  border-radius: @radius;
+}
+ 
+div.rounded {
+  @border_radious();
+}
+button.rounded {
+  @border_radious(3px);
+}
+
+@nice-blue: #5B83AD;
+@light-blue: @nice-blue + #111;
+@dark-orange: orange - #010203;
+ 
+div.hilite { color: @light-blue;}
+div.hilite2 { color: @dark-orange;}

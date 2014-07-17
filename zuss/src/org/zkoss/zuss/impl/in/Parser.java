@@ -135,6 +135,9 @@ public class Parser {
 			newBlock(ctx,
 				new MediaDefinition(ctx.block.owner, scope, kw.getLine()));
 			return;
+		case FONTFACE:
+		    new RawValue(ctx.block.owner, "@font-face "+_in.getUntil("}")+'\n', kw.getLine());
+                    return;
 		case IF:
 			nextAndCheck(ctx, '(', false);
 			expr = new Expression(_in.getLine());

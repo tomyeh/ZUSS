@@ -47,7 +47,9 @@ package org.zkoss.zuss.impl.in;
 		/** CSS's @charset. */
 		CHARSET("@charset"),
 		/** CSS's @media. */
-		MEDIA("@media");
+		MEDIA("@media"),
+		/** CSS's @font-face **/
+		FONTFACE("@font-face");
 
 		private final String value;
 		private Value(String value) {
