@@ -1,0 +1,11 @@
+@VARIABLE: 2.5mm;
+
+div1 {
+	top: -@VARIABLE;
+}
+div2 {
+	top: @eval(-1*@VARIABLE);
+}
+div 3 {
+	top: @eval(-@VARIABLE);
+}
