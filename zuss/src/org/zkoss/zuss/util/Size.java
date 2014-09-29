@@ -48,7 +48,7 @@ public class Size implements Comparable<Object> {
 	/** Return a size that negates this size.
 	 */
 	public Size negate() {
-		throw new ZussException("Unable to negate a size, "+this);
+	    return new Size(-this.size, this.measure);
 	}
 	/** Returns a size that adds this size and the given object.
 	 */

@@ -25,6 +25,9 @@ public class Operators {
 			return ((Color)val).negate();
 		if (val instanceof Size)
 			return ((Size)val).negate();
+		if (val instanceof Number) {
+		    return -((Number) val).doubleValue();
+		}
 		return val;
 	}
 	/** Adds the given values. */
